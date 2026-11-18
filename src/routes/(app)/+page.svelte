@@ -3,16 +3,18 @@
   import { goto } from '$app/navigation';
   import StarterPicker from '#lib/ui/StarterPicker.svelte';
   import GroupedShopping from '#lib/ui/GroupedShopping.svelte';
+  import CategoriesManager from '#lib/ui/CategoriesManager.svelte';
   import {productEmoji} from '#lib/ui/product-emoji.ts';
   type Product={id:string;category_id:string;name_de:string;name_en:string|null;brand:string|null;source:string};
-  type Category={id:string;name_de:string;name_en:string};
+  type Category={id:string;name_de:string;name_en:string;is_custom?:number;sort_order?:number};
   type Variant={id:string;product_id:string;label_de:string;label_en:string|null};
   type Item={id:string;name_snapshot:string;name_de:string|null;name_en:string|null;variant_de:string|null;variant_en:string|null;quantity:number;unit_id:string;checked?:number;version:number;note?:string};
-  let tab:'dashboard'|'shopping'|'pantry'|'catalog'|'settings'='dashboard';
+  let tab:'dashboard'|'shopping'|'pantry'|'catalog'|'categories'|'settings'='dashboard';
   let lang:'de'|'en'='de',theme:'mint'|'violet'='mint';
   let products:Product[]=[],categories:Category[]=[],variants:Variant[]=[],shopping:Item[]=[],pantry:Item[]=[];
   let query='',chosen='',chosenVariant='',categoryFilter='',qty=1,unit='pcs',note='';
   let customName='',customEnglish='',customCategory='produce',customVariant='';
+  let manualMode=false,manualName='',manualCategory='hygiene',manualVariant='';
   let modal:'shopping'|'pantry'|'custom'|null=null;
   let loading=true,error='',working=false;
   let live:EventSource|undefined;
@@ -65,11 +67,46 @@
     tab='shopping';
     await refresh('shopping');
   }
-  function openModal(v:'shopping'|'pantry'|'custom'){modal=v;chosen='';chosenVariant='';qty=1;unit='pcs';query='';note='';error='';}
+  function openModal(v:'shopping'|'pantry'|'custom'){
+    modal=v;chosen='';chosenVariant='';qty=1;unit='pcs';query='';note='';error='';
+    manualMode=false;manualName='';manualVariant='';
+    manualCategory=categories.find((c)=>c.id==='hygiene')?.id||categories[0]?.id||'';
+  }
+  function openFreeText(prefill=''){
+    if(showStarter)localStorage.setItem(STARTER_KEY,'1');
+    showStarter=false;
+    openModal('shopping');manualMode=true;
+    manualName=prefill.trim().slice(0,120);
+    manualCategory=/binden|tampon|slipeinlage|windel|hygiene/i.test(manualName)?'hygiene':categories[0]?.id||'hygiene';
+  }
+  async function createCategory(input:{nameDe:string;nameEn?:string}){
+    await request('/categories',{method:'POST',body:JSON.stringify(input)});await refresh('catalog');
+  }
+  async function renameCategory(id:string,input:{nameDe:string;nameEn?:string}){
+    await request('/categories/'+id,{method:'PATCH',body:JSON.stringify(input)});await refresh('catalog');
+  }
+  async function deleteCategory(id:string){
+    await request('/categories/'+id,{method:'DELETE'});await refresh('catalog');
+  }
+  async function moveProduct(id:string,categoryId:string){
+    await request('/catalog/'+id,{method:'PATCH',body:JSON.stringify({categoryId})});await refresh('catalog');
+  }
   async function addItem(){
-    if(!chosen||qty<=0)return;working=true;
+    if((!manualMode&&!chosen)||(manualMode&&!manualName.trim())||!Number.isFinite(Number(qty))||Number(qty)<=0)return;
+    working=true;error='';
     try{
-      await request(modal==='shopping'?'/shopping':'/pantry',{method:'POST',body:JSON.stringify({productId:chosen,variantId:chosenVariant||null,quantity:Number(qty),unitId:unit,...(modal==='shopping'?{note}:{locationId:'home'})})});
+      if(manualMode){
+        if(!categories.some((c)=>c.id===manualCategory))throw new Error(tr('Bitte eine Kategorie auswählen.','Select a category.'));
+        await request(modal==='shopping'?'/shopping/custom':'/pantry/custom',{method:'POST',body:JSON.stringify({
+          nameDe:manualName.trim(),categoryId:manualCategory,
+          ...(manualVariant.trim()?{variantDe:manualVariant.trim()}:{}),
+          quantity:Number(qty),unitId:unit,...(modal==='shopping'?{note}:{locationId:'home'})
+        })});
+      }else{
+        await request(modal==='shopping'?'/shopping':'/pantry',{method:'POST',body:JSON.stringify({
+          productId:chosen,variantId:chosenVariant||null,quantity:Number(qty),unitId:unit,...(modal==='shopping'?{note}:{locationId:'home'})
+        })});
+      }
       modal=null;await refresh();
     }catch(e){error=String(e);}finally{working=false;}
   }
@@ -102,12 +139,13 @@
       <button class:active={tab==='shopping'} onclick={()=>tab='shopping'}>☷ &nbsp; {tr('Einkaufsliste','Shopping list')}</button>
       <button class:active={tab==='pantry'} onclick={()=>tab='pantry'}>▤ &nbsp; {tr('Vorräte','Pantry')}</button>
       <button class:active={tab==='catalog'} onclick={()=>tab='catalog'}>◈ &nbsp; {tr('Produkte','Products')}</button>
+      <button class:active={tab==='categories'} onclick={()=>tab='categories'}>▦ &nbsp; {tr('Kategorien','Categories')}</button>
       <button class:active={tab==='settings'} onclick={()=>tab='settings'}>⚙ &nbsp; {tr('Einstellungen','Settings')}</button>
     </nav>
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.1</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.1</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -158,6 +196,10 @@
       <div class="heading section-head"><p class="subtle">{tr('Deine Standard- und eigenen Produkte.','Your standard and custom products.')}</p><button class="primary" onclick={()=>openModal('custom')}>＋ {tr('Eigenes Produkt','Custom product')}</button></div>
       <div class="filters"><input aria-label={tr('Produkte suchen','Search products')} placeholder={tr('Produkte suchen…','Search products…')} bind:value={query}/><select aria-label={tr('Kategorie','Category')} bind:value={categoryFilter}><option value="">{tr('Alle Kategorien','All categories')}</option>{#each categories as cat}<option value={cat.id}>{lang==='de'?cat.name_de:cat.name_en}</option>{/each}</select></div>
       <section class="panel list">{#each available as p(p.id)}<div class="item"><span class="symbol">{productEmoji(p.name_de,p.category_id)}</span><div class="item-name"><strong>{title(p)}</strong><small>{p.brand??categories.find(c=>c.id===p.category_id)?.[lang==='de'?'name_de':'name_en']??''}</small></div>{#if p.source==='custom'}<span class="tag">{tr('Eigen','Custom')}</span>{/if}<button class="small-button" title={tr('Zur Einkaufsliste','Add to shopping list')} onclick={()=>{openModal('shopping');chosen=p.id;}}>＋</button></div>{/each}</section>
+    {:else if tab==='categories'}
+      <CategoriesManager {products} {categories} {lang}
+        onCreate={createCategory} onRename={renameCategory}
+        onDelete={deleteCategory} onMove={moveProduct}/>
     {:else if tab==='settings'}
       <section class="panel preferences"><h2>{tr('Darstellung','Appearance')}</h2><p class="subtle">{tr('Die Auswahl gilt nur für diesen Browser.','Preferences apply to this browser only.')}</p>
         <h3>{tr('Farbschema','Theme')}</h3><div class="choices"><button class:chosen={theme==='mint'} onclick={()=>chooseTheme('mint')}>🟢 Dark Mint</button><button class:chosen={theme==='violet'} onclick={()=>chooseTheme('violet')}>🟣 Dark Violet</button></div>
@@ -173,6 +215,7 @@
     <button class:active={tab==='shopping'} onclick={()=>tab='shopping'}>☷<small>{tr('Einkauf','Shopping')}</small></button>
     <button class:active={tab==='pantry'} onclick={()=>tab='pantry'}>▤<small>{tr('Vorräte','Pantry')}</small></button>
     <button class:active={tab==='catalog'} onclick={()=>tab='catalog'}>◈<small>{tr('Produkte','Products')}</small></button>
+    <button class:active={tab==='categories'} onclick={()=>tab='categories'}>▦<small>{tr('Kategorien','Categories')}</small></button>
     <button class:active={tab==='settings'} onclick={()=>tab='settings'}>⚙<small>{tr('Mehr','More')}</small></button>
   </nav>
   {#if modal}
@@ -189,12 +232,58 @@
           </form>
         {:else}
           <form onsubmit={(e)=>{e.preventDefault();addItem();}}>
-            <label>{tr('Produkt suchen','Search product')}<input placeholder={tr('z. B. Milch','e.g. Milk')} bind:value={query}/></label>
-            <label>{tr('Produkt auswählen','Select product')}<select required bind:value={chosen} onchange={()=>chosenVariant=''}><option value="">{tr('Bitte auswählen…','Please select…')}</option>{#each available as p}<option value={p.id}>{title(p)}</option>{/each}</select></label>
-            {#if selectedVariants.length}<label>{tr('Variante','Variant')}<select bind:value={chosenVariant}><option value="">{tr('Keine Variante','No variant')}</option>{#each selectedVariants as v}<option value={v.id}>{lang==='en'&&v.label_en?v.label_en:v.label_de}</option>{/each}</select></label>{/if}
+            <div class="mode-toggle" role="group" aria-label={tr('Produktquelle auswählen','Choose product source')}>
+              <button type="button" class:chosen={!manualMode} onclick={()=>manualMode=false}>{tr('Aus Produktkatalog','From catalog')}</button>
+              <button type="button" class:chosen={manualMode} onclick={()=>{manualMode=true;manualName=query.trim().slice(0,120);}}>{tr('✎ Freitext eingeben','✎ Type a new product')}</button>
+            </div>
+            {#if manualMode}
+              <label>{tr('Produktname (Freitext)','Product name (free text)')}
+                <input required maxlength="120" placeholder={tr('z. B. Binden, Zewa …','e.g. Sanitary pads, paper towels …')} bind:value={manualName}/>
+              </label>
+              <label>{tr('Kategorie auswählen','Choose category')}
+                <select required bind:value={manualCategory}>
+                  {#each categories as cat (cat.id)}
+                    <option value={cat.id}>{lang==='de'?cat.name_de:cat.name_en}</option>
+                  {/each}
+                </select>
+              </label>
+              <label>{tr('Variante (optional)','Variant (optional)')}
+                <input maxlength="80" placeholder={tr('z. B. normal, 16 Stück','e.g. regular, 16 pieces')} bind:value={manualVariant}/>
+              </label>
+              <button type="button" class="text-link" onclick={()=>{modal=null;tab='categories';}}>
+                {tr('Kategorie fehlt? Neue Kategorie erstellen','Missing a category? Create one')}
+              </button>
+            {:else}
+              <label>{tr('Produkt suchen','Search product')}
+                <input placeholder={tr('z. B. Milch','e.g. Milk')} bind:value={query}/>
+              </label>
+              <label>{tr('Produkt auswählen','Select product')}
+                <select required bind:value={chosen} onchange={()=>chosenVariant=''}>
+                  <option value="">{tr('Bitte auswählen…','Please select…')}</option>
+                  {#each available as p (p.id)}
+                    <option value={p.id}>{title(p)}</option>
+                  {/each}
+                </select>
+              </label>
+              {#if !available.length}
+                <button type="button" class="text-link" onclick={()=>{manualMode=true;manualName=query.trim().slice(0,120);}}>
+                  {tr('Produkt nicht gefunden? Als Freitext hinzufügen','Product not found? Add it as free text')}
+                </button>
+              {/if}
+              {#if selectedVariants.length}
+                <label>{tr('Variante','Variant')}
+                  <select bind:value={chosenVariant}>
+                    <option value="">{tr('Keine Variante','No variant')}</option>
+                    {#each selectedVariants as v (v.id)}
+                      <option value={v.id}>{lang==='en'&&v.label_en?v.label_en:v.label_de}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
+            {/if}
             <div class="qty-row"><label>{tr('Menge','Quantity')}<input type="number" min="0.001" max="1000000" step="any" required bind:value={qty}/></label><label>{tr('Einheit','Unit')}<select bind:value={unit}>{#each ['pcs','pack','g','kg','ml','l'] as u}<option value={u}>{unitLabel(u)}</option>{/each}</select></label></div>
             {#if modal==='shopping'}<label>{tr('Notiz (optional)','Note (optional)')}<input maxlength="300" bind:value={note}/></label>{/if}
-            <button disabled={!chosen||working} type="submit" class="primary">{tr('Hinzufügen','Add')}</button>
+            <button disabled={working||(!manualMode&&!chosen)||(manualMode&&(!manualName.trim()||!manualCategory))} type="submit" class="primary">{tr('Hinzufügen','Add')}</button>
           </form>
         {/if}
       </div>
@@ -202,7 +291,7 @@
   {/if}
   {#if showStarter}
     <StarterPicker {products} {categories} {variants} {lang} initial={starterInitial}
-      onClose={closeStarter} onSave={saveStarter}/>
+      onClose={closeStarter} onSave={saveStarter} onCustom={openFreeText}/>
   {/if}
 </div>
 <style>
@@ -219,7 +308,11 @@
   .filters{display:flex;gap:12px;margin-top:24px}.filters input{flex:1;min-width:0}.filters select{max-width:220px}.filters input,.filters select,.dialog input,.dialog select{background:#171c23;border:1px solid #46515e;border-radius:10px;padding:12px;color:white;min-height:44px;width:100%}
   .list{margin-top:18px}.preferences{max-width:620px}.preferences .subtle{font-size:13px}.choices{display:flex;gap:12px;flex-wrap:wrap}.choices button{border:1px solid #45515e;background:#252d36;border-radius:12px;color:#e4ebf2;padding:13px 18px}.choices button.chosen{border-color:var(--accent);color:var(--accent)}.secondary{background:transparent;color:#e4ebf2;border:1px solid #526070;border-radius:12px;padding:12px 18px}.error{background:#482932;border:1px solid #8e4b5f;color:#ffd6dc;padding:13px;border-radius:12px;margin-top:22px;display:flex;justify-content:space-between}.error button{border:0;background:none;color:inherit}
   .mobile-nav{display:none}.backdrop{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:20;padding:16px}.dialog{width:min(100%,520px);max-height:90vh;overflow-y:auto;background:#222a34;border:1px solid #48535f;border-radius:22px;padding:24px}.dialog form{display:grid;gap:16px;margin-top:16px}.dialog label{display:grid;gap:7px;font-size:13px;color:#b7c4d2}.dialog .qty-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dialog input:focus,.dialog select:focus{outline:2px solid var(--accent)}
-  @media(max-width:800px){.sidebar{display:none}main{padding:24px 18px 110px}.stats{gap:10px}.stat{padding:15px;border-radius:14px}.stat strong{font-size:26px}.panel{padding:16px}.mobile-nav{position:fixed;bottom:0;left:0;right:0;background:#1b212a;border-top:1px solid #343e49;display:flex;justify-content:space-around;z-index:10;padding:8px 5px max(10px,env(safe-area-inset-bottom))}.mobile-nav button{display:grid;justify-items:center;gap:4px;min-width:54px;border:0;background:none;color:#9cabb9;font-size:22px}.mobile-nav button small{font-size:10px}.mobile-nav button.active{color:var(--accent)}}
+  .mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mode-toggle button{padding:11px 8px;border-radius:10px;border:1px solid #526171;background:#303a46;color:#cbd6e1;font-size:12px}
+  .mode-toggle button.chosen{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .text-link{border:0;background:transparent;color:var(--accent);text-align:left;font-size:13px;padding:3px 0}
+  @media(max-width:800px){.sidebar{display:none}main{padding:24px 18px 110px}.stats{gap:10px}.stat{padding:15px;border-radius:14px}.stat strong{font-size:26px}.panel{padding:16px}.mobile-nav{position:fixed;bottom:0;left:0;right:0;background:#1b212a;border-top:1px solid #343e49;display:flex;justify-content:space-around;z-index:10;padding:8px 5px max(10px,env(safe-area-inset-bottom))}.mobile-nav button{display:grid;justify-items:center;gap:4px;min-width:43px;border:0;background:none;color:#9cabb9;font-size:22px}.mobile-nav button small{font-size:10px}.mobile-nav button.active{color:var(--accent)}}
   @media(max-width:460px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stats .stat:last-child{grid-column:span 2}.filters{flex-direction:column}.filters select{max-width:none}.dialog{padding:17px}.item{gap:9px}.beta{display:none}}
 
   .shopping-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
