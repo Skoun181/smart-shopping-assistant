@@ -1,27 +1,25 @@
 import {describe,expect,test} from 'vitest';
-import {prepareHeaders,trustedProxyPeer} from '../scripts/network-headers.mjs';
-describe('trusted network ingress',()=>{
-  test('remote proxy must match actual peer, including IPv4-mapped addresses',()=>{
-    expect(trustedProxyPeer('192.168.0.66','192.168.0.66')).toBe(true);
-    expect(trustedProxyPeer('::ffff:192.168.0.66','192.168.0.66')).toBe(true);
-    expect(trustedProxyPeer('192.168.0.67','192.168.0.66')).toBe(false);
-    expect(trustedProxyPeer(undefined,'192.168.0.66')).toBe(false);
+import {prepareHeaders} from '../scripts/network-headers.mjs';
+describe('single port network ingress',()=>{
+  test('direct IP defaults to HTTP and ignores spoofed client addresses',()=>{
+    const h:Record<string,string>={host:'192.168.0.150:3000','x-real-ip':'1.2.3.4','x-forwarded-for':'8.8.8.8','x-ssa-protocol':'https'};
+    expect(prepareHeaders(h,'192.168.0.10')).toBe(true);
+    expect(h).toEqual({host:'192.168.0.150:3000','x-ssa-protocol':'http','x-ssa-client-ip':'192.168.0.10'});
   });
-  test('direct LAN ignores all forged forwarding headers',()=>{
-    const h:Record<string,string>={host:'192.168.1.50:3000','x-forwarded-proto':'https','x-forwarded-host':'evil.example','x-real-ip':'1.2.3.4','x-ssa-protocol':'https','x-ssa-client-ip':'8.8.8.8'};
-    expect(prepareHeaders(h,'192.168.1.2',false)).toBe(true);
-    expect(h).toEqual({host:'192.168.1.50:3000','x-ssa-protocol':'http','x-ssa-client-ip':'192.168.1.2'});
+  test('local domain works without special configuration',()=>{
+    const h:Record<string,string>={host:'list.xc.local'};
+    expect(prepareHeaders(h,'192.168.0.66')).toBe(true);
+    expect(h['x-ssa-protocol']).toBe('http');
   });
-  test('direct host rejects external domain and malformed authorities',()=>{
-    for(const host of ['evil.example','192.168.1.50@evil.example','localhost/path','localhost:99999','localhost,evil.example'])
-      expect(prepareHeaders({host},'127.0.0.1',false)).toBe(false);
+  test('HTTPS proxy preserves external host and scheme',()=>{
+    const h:Record<string,string>={host:'list.xc.local:8443','x-forwarded-proto':'https','x-forwarded-host':'other.example'};
+    expect(prepareHeaders(h,'192.168.0.66')).toBe(true);
+    expect(h).toEqual({host:'list.xc.local:8443','x-ssa-protocol':'https','x-ssa-client-ip':'192.168.0.66'});
   });
-  test('trusted proxy accepts canonical host and protocol; internal headers are replaced',()=>{
-    const h:Record<string,string>={host:'shopping.home.arpa:8443','x-forwarded-proto':'https','x-real-ip':'192.168.1.2','x-ssa-protocol':'http'};
-    expect(prepareHeaders(h,'127.0.0.1',true)).toBe(true);
-    expect(h).toEqual({host:'shopping.home.arpa:8443','x-ssa-protocol':'https','x-ssa-client-ip':'192.168.1.2'});
-  });
-  test('proxy requires a single valid protocol',()=>{
-    for(const proto of [undefined,'https,http','ftp','https:'])expect(prepareHeaders({host:'shopping.home.arpa','x-forwarded-proto':proto},'127.0.0.1',true)).toBe(false);
+  test('invalid host or protocol rejected',()=>{
+    for(const host of ['localhost/path','localhost:99999','localhost,evil.example','localhost@evil.example'])
+      expect(prepareHeaders({host},'127.0.0.1')).toBe(false);
+    for(const proto of ['https,http','ftp','https:'])
+      expect(prepareHeaders({host:'list.xc.local','x-forwarded-proto':proto},'127.0.0.1')).toBe(false);
   });
 });
