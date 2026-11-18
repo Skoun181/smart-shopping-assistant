@@ -1,3 +1,4 @@
+// @ts-nocheck — container smoke harness, validated at runtime by Node assertions
 import assert from 'node:assert/strict';
 const BASE='http://127.0.0.1:3333';
 const password='ci-testing-password-very-long';
