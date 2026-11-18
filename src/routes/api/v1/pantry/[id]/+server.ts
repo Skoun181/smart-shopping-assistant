@@ -1,8 +1,8 @@
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import { database, now } from '$lib/server/db';
-import { parsed, quantity, response, uuid } from '$lib/server/http';
-import { changed } from '$lib/server/events';
+import { database, now } from '#lib/server/db.ts';
+import { parsed, quantity, response, uuid } from '#lib/server/http.ts';
+import { changed } from '#lib/server/events.ts';
 const patchSchema=z.object({quantity,expectedVersion:z.number().int().positive()}).strict();
 export const PATCH: RequestHandler = async (event) => {
   const id=uuid.safeParse(event.params.id);

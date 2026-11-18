@@ -1,8 +1,8 @@
 import type { RequestHandler } from './$types';
 import { randomUUID } from 'node:crypto';
-import { database, now } from '$lib/server/db';
-import { listItemBody, parsed, response } from '$lib/server/http';
-import { changed } from '$lib/server/events';
+import { database, now } from '#lib/server/db.ts';
+import { listItemBody, parsed, response } from '#lib/server/http.ts';
+import { changed } from '#lib/server/events.ts';
 
 export const GET: RequestHandler = () => {
   const db=database();

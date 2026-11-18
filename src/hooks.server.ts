@@ -1,7 +1,7 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { error } from '@sveltejs/kit';
-import { getSession } from '$lib/server/auth';
-import { assertOrigin } from '$lib/server/http';
+import { getSession } from '#lib/server/auth.ts';
+import { assertOrigin } from '#lib/server/http.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
   const path = event.url.pathname;
@@ -16,7 +16,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   response.headers.set('Referrer-Policy','no-referrer');
   response.headers.set('X-Frame-Options','DENY');
   response.headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
-  response.headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   response.headers.set('Cache-Control',path.startsWith('/api/') ? 'no-store' : 'private, no-store');
   return response;
 };

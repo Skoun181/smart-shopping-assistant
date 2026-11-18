@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
-import { database, now } from '$lib/server/db';
-import { changeBody, parsed, response, uuid } from '$lib/server/http';
-import { changed } from '$lib/server/events';
+import { database, now } from '#lib/server/db.ts';
+import { changeBody, parsed, response, uuid } from '#lib/server/http.ts';
+import { changed } from '#lib/server/events.ts';
 import { z } from 'zod';
 
 export const PATCH: RequestHandler = async (event) => {

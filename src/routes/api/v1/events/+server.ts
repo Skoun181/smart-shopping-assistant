@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { subscribe, type Topic } from '$lib/server/events';
+import { subscribe, type Topic } from '#lib/server/events.ts';
 
 export const GET: RequestHandler = ({ request }) => {
   const encoder = new TextEncoder();

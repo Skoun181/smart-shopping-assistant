@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import { checkPassword, clearFailures, loginAllowed, newSession, registerFailure } from '$lib/server/auth';
-import { parsed, response } from '$lib/server/http';
+import { checkPassword, clearFailures, loginAllowed, newSession, registerFailure } from '#lib/server/auth.ts';
+import { parsed, response } from '#lib/server/http.ts';
 export const POST: RequestHandler = async (event) => {
   const { password } = await parsed(event,z.object({password:z.string().min(1).max(1024)}).strict());
   const ip = event.getClientAddress();

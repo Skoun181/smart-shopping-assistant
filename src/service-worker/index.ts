@@ -1,9 +1,9 @@
-/// <reference lib="webworker" />
-import { build, files, version } from '$service-worker';
+import { assets, immutable } from '$app/manifest';
+import { version } from '$app/env';
+import { self as worker } from '$app/service-worker';
 
-const worker = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = 'shopping-static-' + version;
-const ASSETS = new Set([...build, ...files].filter((path) => !path.includes('.webmanifest')));
+const ASSETS = new Set([...assets, ...immutable].map((asset) => asset.path));
 
 worker.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([...ASSETS])));
@@ -17,7 +17,7 @@ worker.addEventListener('activate', (event) => {
 });
 worker.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  // Never cache API calls, HTML, sessions, redirects or personalized responses.
+  // Never cache API calls, HTML, auth cookies, sessions or private user data.
   if (event.request.method !== 'GET' || url.origin !== worker.location.origin || !ASSETS.has(url.pathname)) return;
   event.respondWith(caches.match(event.request).then((hit) => hit ?? fetch(event.request)));
 });
