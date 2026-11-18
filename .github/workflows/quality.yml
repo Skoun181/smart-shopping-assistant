@@ -1,4 +1,4 @@
-name: Beta quality checks
+name: Quality and stable release
 on:
   push:
     branches: ['feature/**', main]
@@ -26,15 +26,49 @@ jobs:
       - name: Security audit
         run: npm audit --omit=dev --audit-level=high
       - name: Docker image
-        run: docker build -t smart-shopping-beta .
+        run: docker build -t smart-shopping-ci .
       - name: Smoke test container and APIs
         run: |
           set -euo pipefail
           HASH="$(node tests/ci-password.mjs)"
-          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -e ORIGIN=http://127.0.0.1:3333 -e APP_PASSWORD_HASH="$HASH" smart-shopping-beta
+          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -e ORIGIN=http://127.0.0.1:3333 -e APP_PASSWORD_HASH="$HASH" smart-shopping-ci
           trap 'docker logs shopping-smoke || true; docker rm -f shopping-smoke || true' EXIT
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
             sleep 1
           done
           node tests/smoke.mjs
+
+  release-v1:
+    # Publish the explicitly approved first stable version only after main passes quality.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: stable-release-v1
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Publish v1.0.0 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$(node -p "require('./package.json').version")" != "1.0.0" ]; then
+            echo "Not the v1.0.0 release version"
+            exit 0
+          fi
+          if gh release view v1.0.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v1.0.0 already published; leaving it untouched"
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v1.0.0" >/dev/null 2>&1; then
+            echo "Tag exists without release; refusing to move or reuse it automatically"
+            exit 1
+          fi
+          gh release create v1.0.0 --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Version 1.0.0 Stable" --notes-file RELEASE_NOTES.md --latest
