@@ -23,25 +23,25 @@ export function checkPassword(password: string): boolean {
 export function tokenDigest(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
-function secureCookies(): boolean { return (process.env.ORIGIN ?? '').startsWith('https://'); }
-export function newSession(cookies: Cookies): void {
+function cookieName(secure: boolean): string { return secure ? '__Host-shopping_session' : SESSION_COOKIE; }
+export function newSession(cookies: Cookies, secure: boolean): void {
   const raw = randomBytes(32).toString('base64url');
   const db = database();
   db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now());
   db.prepare('INSERT INTO sessions(token_hash,created_at,expires_at) VALUES(?,?,?)').run(tokenDigest(raw),now(),now() + SESSION_MS);
-  cookies.set(SESSION_COOKIE, raw, { path: '/', httpOnly: true, sameSite: 'lax', secure: secureCookies(), maxAge: SESSION_MS / 1000 });
+  cookies.set(cookieName(secure), raw, { path: '/', httpOnly: true, sameSite: 'lax', secure, maxAge: SESSION_MS / 1000 });
 }
-export function getSession(cookies: Cookies): string | null {
-  const raw = cookies.get(SESSION_COOKIE);
+export function getSession(cookies: Cookies, secure: boolean): string | null {
+  const raw = cookies.get(cookieName(secure));
   if (!raw || !/^[A-Za-z0-9_-]{40,64}$/.test(raw)) return null;
   const digest = tokenDigest(raw);
   const found = database().prepare('SELECT token_hash FROM sessions WHERE token_hash = ? AND expires_at > ?').get(digest, now());
   return found ? digest : null;
 }
-export function deleteSession(cookies: Cookies): void {
-  const raw = cookies.get(SESSION_COOKIE);
+export function deleteSession(cookies: Cookies, secure: boolean): void {
+  const raw = cookies.get(cookieName(secure));
   if (raw) database().prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenDigest(raw));
-  cookies.delete(SESSION_COOKIE,{ path:'/', secure:secureCookies(), sameSite:'lax', httpOnly:true });
+  cookies.delete(cookieName(secure),{ path:'/', secure, sameSite:'lax', httpOnly:true });
 }
 function ipDigest(ip: string): string {
   return createHash('sha256').update('shopping-login-ip:' + ip).digest('hex');
