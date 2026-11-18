@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
+import { seedExpandedCatalog } from './expanded-catalog';
 
 const categories = [
   ['produce','Obst & Gemüse','Fruit & vegetables'],
@@ -44,7 +45,7 @@ export function seedCatalog(db: Database.Database) {
     db.prepare('INSERT OR IGNORE INTO shopping_lists(id,name,created_at) VALUES(?,?,?)').run('default','Einkaufsliste',t);
     db.prepare('INSERT OR IGNORE INTO pantry_locations(id,name_de,name_en) VALUES(?,?,?)').run('home','Zuhause','Home');
     const count = db.prepare("SELECT COUNT(*) as total FROM products WHERE source = 'catalog'").get() as { total: number };
-    if (count.total) return;
+    if (!count.total) {
     const insert = db.prepare('INSERT INTO products(id,category_id,name_de,name_en,source,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)');
     const variants = db.prepare('INSERT INTO product_variants(id,product_id,label_de,label_en,attributes) VALUES(?,?,?,?,?)');
     for (const [category, items] of Object.entries(catalog)) {
@@ -68,5 +69,9 @@ export function seedCatalog(db: Database.Database) {
         }
       }
     }
+    }
+    // Run on every restart so upgraded installations receive new curated products.
+    // Do not move or overwrite products the household has already categorized.
+    seedExpandedCatalog(db,t);
   })();
 }
