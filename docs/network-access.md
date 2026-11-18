@@ -1,4 +1,4 @@
-# Netzwerkzugriff (1.0.1 RC)
+# Netzwerkzugriff (1.0.1 Stable)
 
 Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den vorhandenen APP_PORT). Keine zusätzliche Compose-Datei, keine Proxy-IP-Freigabeliste und keine Origin-Einstellung in .env nötig. Alte ORIGIN- und BIND_ADDRESS-Werte werden ignoriert. Das Passwort und Datenvolume bleiben erhalten.
 
@@ -12,7 +12,7 @@ NGINX leitet an http://192.168.0.150:3000 weiter und setzt Host auf die ursprün
 
 ## Update
 
-Backup anlegen, extern sichern, Git-Branch feature/automatic-network-access auschecken/aktualisieren. Falls aus einem früheren RC eine compose.override.yaml oder compose.remote-proxy.yaml für den zweiten Listener existiert, nur diese alte Proxy-Konfiguration entfernen bzw. eigene sonstige Einstellungen behalten. Dann docker compose config --quiet und docker compose up -d --build. Beide Zugangswege prüfen; ggf. erneut anmelden.
+Backup anlegen, extern sichern, `git fetch origin --tags` und `git checkout v1.0.1` ausführen. Falls aus einem früheren RC eine compose.override.yaml oder compose.remote-proxy.yaml für den zweiten Listener existiert, nur diese alte Proxy-Konfiguration entfernen bzw. eigene sonstige Einstellungen behalten. Dann docker compose config --quiet und docker compose up -d --build. Beide Zugangswege prüfen; ggf. erneut anmelden.
 
 ## Sicherheit
 
