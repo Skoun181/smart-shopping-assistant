@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { database } from '#lib/server/db.ts';
 import { parsed, response, uuid } from '#lib/server/http.ts';
-import { categoryBody } from '../+server';
+import { categoryBody } from '#lib/server/category-schema.ts';
 import { changed } from '#lib/server/events.ts';
 
 export const PATCH: RequestHandler = async (event) => {
