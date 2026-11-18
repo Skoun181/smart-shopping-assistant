@@ -4,11 +4,13 @@
   import StarterPicker from '#lib/ui/StarterPicker.svelte';
   import GroupedShopping from '#lib/ui/GroupedShopping.svelte';
   import CategoriesManager from '#lib/ui/CategoriesManager.svelte';
+  import PantryImport from '#lib/ui/PantryImport.svelte';
+  import type { Unit } from '#lib/pantry-import.ts';
   import {productEmoji} from '#lib/ui/product-emoji.ts';
   type Product={id:string;category_id:string;name_de:string;name_en:string|null;brand:string|null;source:string};
   type Category={id:string;name_de:string;name_en:string;is_custom?:number;sort_order?:number};
   type Variant={id:string;product_id:string;label_de:string;label_en:string|null};
-  type Item={id:string;name_snapshot:string;name_de:string|null;name_en:string|null;variant_de:string|null;variant_en:string|null;quantity:number;unit_id:string;checked?:number;version:number;note?:string};
+  type Item={id:string;product_id?:string|null;name_snapshot:string;name_de:string|null;name_en:string|null;variant_de:string|null;variant_en:string|null;quantity:number;unit_id:string;checked?:number;version:number;note?:string};
   let tab:'dashboard'|'shopping'|'pantry'|'catalog'|'categories'|'settings'='dashboard';
   let lang:'de'|'en'='de',theme:'mint'|'violet'='mint';
   let products:Product[]=[],categories:Category[]=[],variants:Variant[]=[],shopping:Item[]=[],pantry:Item[]=[];
@@ -19,7 +21,7 @@
   let modal:'shopping'|'pantry'|'custom'|null=null;
   let loading=true,error='',working=false;
   let live:EventSource|undefined;
-  let showStarter=false,starterInitial=false;
+  let showStarter=false,starterInitial=false,showPantryImport=false;
   const STARTER_KEY='ssa:starter-completed:v1';
   const tr=(de:string,en:string)=>lang==='de'?de:en;
   const title=(item:Product|Item)=>lang==='en'&&item.name_en?item.name_en:('name_de' in item&&item.name_de?item.name_de:'name_snapshot' in item?item.name_snapshot:'');
@@ -135,6 +137,14 @@
       customName='';customEnglish='';customVariant='';modal=null;await refresh('catalog');
     }catch(e){error=String(e);}finally{working=false;}
   }
+  async function confirmPantryImport(importId:string,items:Array<{name:string;quantity:number;unit:Unit;categoryId:string;variant:string;productId:string|null}>){
+    await request('/pantry/import',{method:'POST',body:JSON.stringify({importId,confirmed:true,items})});
+    showPantryImport=false;await refresh();tab='pantry';
+  }
+  function emojiFor(item:Item, catalog:Product[]){
+    const p=catalog.find(p=>p.id===item.product_id);
+    return productEmoji(p?.name_de||item.name_de||item.name_snapshot,p?.category_id||'');
+  }
   async function logout(){await request('/auth/logout',{method:'POST'});await goto('/login');}
   $: outstanding=shopping.filter(i=>!i.checked).length;
   $: completed=shopping.filter(i=>i.checked).length;
@@ -156,7 +166,7 @@
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.2</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.3</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -169,7 +179,7 @@
       <section class="panel"><div class="heading"><h2>{tr('Nächster Einkauf','Next shopping trip')}</h2><button class="link" onclick={()=>tab='shopping'}>{tr('Alle anzeigen','View all')} →</button></div>
         {#if !outstanding}<p class="empty">{tr('Alles erledigt! Füge dein erstes Produkt hinzu.','All done! Add your first item.')}</p>{/if}
         {#each shopping.filter(i=>!i.checked).slice(0,6) as item(item.id)}
-          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={()=>updateItem(item,'shopping',{checked:true})}/><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
+          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={()=>updateItem(item,'shopping',{checked:true})}/><span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
         {/each}<button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Produkt hinzufügen','Add product')}</button>
       </section>
     {:else if tab==='shopping'}
@@ -191,12 +201,12 @@
           onRemove={(item)=>removeItem(item,'shopping')}/>
       {/if}
     {:else if tab==='pantry'}
-      <div class="heading section-head"><p class="subtle">{tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><button class="primary" onclick={()=>openModal('pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div>
+      <div class="heading section-head"><p class="subtle">{tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><div class="shopping-actions"><button class="secondary" onclick={()=>showPantryImport=true}>📷 {tr('Scannen & importieren','Scan & import')}</button><button class="primary" onclick={()=>openModal('pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div></div>
       {#if pantry.length===0}<section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>{/if}
       <section class="panel list">
         {#each pantry as item(item.id)}
           <div class="item">
-            <span class="symbol">▤</span>
+            <span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span>
             <div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)} {item.note?' · '+item.note:''}</small></div>
             <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,'pantry',{quantity:Number(raw)});}}>✎</button>
             <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,'pantry')}>×</button>
@@ -217,7 +227,7 @@
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Beta 0.2 · Nur für private Heimnetzwerke','Beta 0.2 · Private home networks only')}</p>
+        <p class="subtle">{tr('Beta 0.3 · Nur für private Heimnetzwerke','Beta 0.3 · Private home networks only')}</p>
       </section>
     {/if}
   </main>
@@ -309,6 +319,9 @@
         {/if}
       </div>
     </div>
+  {/if}
+  {#if showPantryImport}
+    <PantryImport {products} {categories} {lang} onClose={()=>showPantryImport=false} onImport={confirmPantryImport}/>
   {/if}
   {#if showStarter}
     <StarterPicker {products} {categories} {variants} {lang} initial={starterInitial}
