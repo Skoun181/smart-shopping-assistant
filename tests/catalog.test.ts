@@ -7,12 +7,11 @@ describe('baseline security and schema checks',()=>{
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS product_variants');
     expect(sql).toContain('CHECK (quantity > 0');
   });
-  test('direct LAN port and separate loopback proxy by default',()=>{
+  test('one shared LAN and proxy port by default',()=>{
     const env=readFileSync('.env.example','utf8');
     const compose=readFileSync('compose.yaml','utf8');
     expect(compose).toContain('0.0.0.0:');
-    expect(compose).toContain('127.0.0.1:3001:3001');
-    expect(compose).not.toContain('0.0.0.0:3001:3001');
+    expect(compose).not.toContain(':3001');
     expect(env).not.toContain('password123');
   });
 });
