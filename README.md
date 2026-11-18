@@ -1,6 +1,6 @@
 # Smart Shopping Assistant 🛒
 
-**Version: 0.3.0-beta.1 (Entwicklungs-Beta)**
+**Version: 0.3.1-beta.1 (Entwicklungs-Beta)**
 
 Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein Fork oder Clone von Koffan.
 
@@ -26,6 +26,14 @@ Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein
 - **Neuer Tab `Kategorien`:** Alle Produkte nach Kategorie durchsehen, Produkte jeder Art auf eine andere Kategorie umstellen (z. B. Cola zu Snacks), neue Kategorien mit deutschem/optional englischem Namen anlegen, eigene Kategorien umbenennen und *leere* eigene Kategorien wieder löschen.
 - **Daten bleiben erhalten:** Die Migration `0002_custom_categories.sql` ergänzt die vorhandene SQLite-Datenbank, ohne Einkaufspositionen oder alte Produkt-IDs zu ersetzen. Zusätzliche Katalogprodukte werden idempotent eingespielt. Selbst vorgenommene Kategoriezuordnungen werden bei künftigen Neustarts nicht überschrieben.
 - **Transaktional und abgesichert:** Freitextprodukt und Listen- bzw. Vorratsposition werden in einer Transaktion angelegt. Alle neuen Endpunkte bleiben mit Sitzung, Origin-Prüfung, Eingabevalidierung und parametrisiertem SQL geschützt.
+
+## Neu in Beta 0.3.1: Verständlichere Kassenbons und Freigabe
+
+- Lokale regelbasierte Bon-Interpretation: bekannte Abkürzungen und Markenbezeichnungen werden auf Katalogprodukte oder Produktvorschläge abgebildet (z. B. H-MILCH GVO-FREI → H-Milch, ROHSCHINKEN GEW. → Schinken, FANTA GRAPE → Fanta / Getränke). Eindeutig zugeordnete Katalogprodukte behalten ihre aktuelle Kategorie.
+- Nicht eindeutige Zuordnungen bleiben als Vorschläge gekennzeichnet; Originalzeilen sind weiterhin sichtbar. Preisbeträge sind keine Mengen. Bei fehlender Mengenangabe wird 1 Stück als ausdrücklich zu prüfender Vorschlag gesetzt. Unbekannte Kategorien bleiben offen. Die Erkennung endet vor dem Summen-/Zahlungsbereich.
+- Die Bestätigungscheckbox ist unabhängig von der Feldvalidierung anklickbar. Der verbindliche Import bleibt bis zur vollständigen Validierung aller ausgewählten Zeilen gesperrt. Fehler stehen direkt am Artikel und im Fußbereich; Änderungen setzen die Bestätigung zurück.
+- Keine zusätzliche Cloud-KI, keine neuen Abhängigkeiten. Diese Zuordnung arbeitet mit Regeln und Katalogabgleich; sie lernt noch nicht automatisch aus Korrekturen. Die optionale lokale Foto-KI bleibt unverändert.
+- Testupdate im bisherigen Projektordner: Backup anlegen, `git fetch origin`, `git switch --track origin/feature/smart-receipt-matching`, `sudo docker compose up -d --build`. Health-Version: `0.3.1-beta.1`. Keine Volumes löschen.
 
 ## Neu in Beta 0.3: Vorratsimport mit Freigabe
 
