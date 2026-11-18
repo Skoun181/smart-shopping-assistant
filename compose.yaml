@@ -1,7 +1,7 @@
 services:
   shopping:
     build: .
-    image: smart-shopping-assistant:beta
+    image: smart-shopping-assistant:1.0.0
     restart: unless-stopped
     init: true
     env_file:
