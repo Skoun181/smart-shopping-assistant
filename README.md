@@ -1,6 +1,6 @@
 # Smart Shopping Assistant 🛒
 
-**Version: 0.2.0-beta.1 (Entwicklungs-Beta)**
+**Version: 0.3.0-beta.1 (Entwicklungs-Beta)**
 
 Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein Fork oder Clone von Koffan.
 
@@ -26,6 +26,46 @@ Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein
 - **Neuer Tab `Kategorien`:** Alle Produkte nach Kategorie durchsehen, Produkte jeder Art auf eine andere Kategorie umstellen (z. B. Cola zu Snacks), neue Kategorien mit deutschem/optional englischem Namen anlegen, eigene Kategorien umbenennen und *leere* eigene Kategorien wieder löschen.
 - **Daten bleiben erhalten:** Die Migration `0002_custom_categories.sql` ergänzt die vorhandene SQLite-Datenbank, ohne Einkaufspositionen oder alte Produkt-IDs zu ersetzen. Zusätzliche Katalogprodukte werden idempotent eingespielt. Selbst vorgenommene Kategoriezuordnungen werden bei künftigen Neustarts nicht überschrieben.
 - **Transaktional und abgesichert:** Freitextprodukt und Listen- bzw. Vorratsposition werden in einer Transaktion angelegt. Alle neuen Endpunkte bleiben mit Sitzung, Origin-Prüfung, Eingabevalidierung und parametrisiertem SQL geschützt.
+
+## Neu in Beta 0.3: Vorratsimport mit Freigabe
+
+- Produkt-Emojis erscheinen auch auf der Übersicht und in der Vorratsliste.
+- Unter **Vorräte → Scannen & importieren** gibt es einen gemeinsamen Import-Assistenten. Ein Scan oder CSV erzeugt nur einen Entwurf, noch keine Vorratsdaten.
+- Kassenbon: JPG/PNG per lokaler Tesseract-Texterkennung, digitale PDF-Dateien per Poppler (OCR-Fallback für reine Bild-PDFs), TXT. Erkennung von Preiszeilen ist heuristisch; Mengen werden nicht aus Preisen abgeleitet. Maximal 5 MiB, PDF maximal drei Seiten.
+- Kühlschrank/Einkaufsfoto: optionale lokale Bild-KI über Ollama. Standardmäßig nicht konfiguriert; die CSV-Alternative funktioniert ohne Modell oder API-Schlüssel.
+- CSV: UTF-8, maximal 100 KB und 200 Zeilen. Semikolon oder Komma als Trennzeichen; Kopfzeile `produkt;menge;einheit;kategorie;variante`. Einheiten pcs, pack, g, kg, ml, l; Dezimalpunkt oder Dezimalkomma (bei Kommatrennung Feld quoten). Unbekannte Menge leer lassen. CSV-Vorlage und KI-Prompt werden in der Oberfläche zum Download angeboten.
+- Vorschau: Namen, Katalogzuordnung, Kategorien, Mengen, Einheiten und Varianten bearbeiten, Zeilen entfernen/ergänzen und ausdrücklich freigeben. Unbekannte Mengen/Kategorien müssen ausgefüllt werden.
+- Bestätigte Zeilen werden gemeinsam transaktional hinzugefügt, nie als Bestandsersetzung. Wiederholung derselben Import-ID mit identischem Inhalt legt keine zusätzlichen Zeilen an. Erneutes Scannen einer Datei ist dagegen ein neuer Import; vorhandene Bestände deshalb vor Freigabe kontrollieren.
+- Dateien werden nicht dauerhaft gespeichert; die lokale OCR nutzt temporäre Dateien, die nach der Verarbeitung entfernt werden. Keine automatische Übermittlung an externe Chat-KI. Bei selbst gewählter externer KI Kundendaten und Zahlungsinformationen vorher entfernen.
+- Migration `0003_pantry_imports.sql` speichert ausschließlich Import-ID, Prüfsumme, Anzahl und Zeit; keine Bonbilder oder Rohtexte. Neue Produkte werden erst bei Freigabe erstellt.
+
+### Optionale lokale Bild-KI
+
+Auf einem separaten Rechner im Heimnetz Ollama samt lokalem bildfähigem Modell installieren (Modell und RAM/GPU passend zur Hardware auswählen). Ollamas Cloud-Funktionen deaktivieren (`OLLAMA_NO_CLOUD=1` auf dem Ollama-Host); Zugriff auf Port 11434 per Firewall ausschließlich von der Shopping-VM erlauben. Keine Internetfreigabe. Die Shopping-App verwendet nur eine vom Administrator konfigurierte private IPv4-Adresse, keine vom Browser übergebene URL.
+
+In der vorhandenen `.env` ergänzen (Beispielwerte ersetzen):
+
+```dotenv
+PANTRY_VISION_URL=http://192.168.178.60:11434/
+PANTRY_VISION_MODEL=your-installed-local-vision-model
+```
+
+Dann `sudo docker compose up -d --force-recreate`. Ohne diese Konfiguration bleiben Foto-KI und ihre Uploads deaktiviert. Der lokale OCR-/PDF- und CSV-Weg bleibt verfügbar. Bildqualität, Modellkompatibilität und Erkennung sind manuell mit realen Beispielen zu testen; keine Garantie für Vollständigkeit. Bei Kühlschrankfotos nur noch nicht erfasste Bestände auswählen.
+
+### Update von Beta 0.2 auf Beta 0.3
+
+Vor dem Update konsistentes SQLite-Backup anlegen und außerhalb der VM sichern. Dann im bestehenden Projektverzeichnis:
+
+```bash
+git status --short
+git fetch origin
+git switch --track origin/feature/pantry-import-assistant
+sudo docker compose up -d --build
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+Erwartete Version: 0.3.0-beta.1. Keine Volumes löschen. Die App benötigt für OCR/PDF keine neue npm-Abhängigkeit; die Werkzeuge stammen aus dem Alpine-Paketrepository im Container.
 
 ## Aktueller Funktionsumfang
 
