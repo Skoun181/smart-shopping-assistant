@@ -29,3 +29,12 @@ export function prepareHeaders(headers,remoteAddress,proxy=false) {
   headers['x-ssa-client-ip']=typeof real==='string'&&isIP(real)?real:remoteAddress||'unknown';
   return true;
 }
+
+/** A remote proxy must match the actual TCP peer, never X-Forwarded-For.
+ * @param {string|undefined} address
+ * @param {string} trusted
+ */
+export function trustedProxyPeer(address,trusted){
+  if(!trusted)return true; // Local-only published port; external access requires explicit allowlist.
+  return !!address && (address===trusted||address==='::ffff:'+trusted);
+}
