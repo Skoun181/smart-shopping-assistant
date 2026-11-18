@@ -81,7 +81,7 @@ Vor jedem Update Backup erstellen. Anschließend Branch aktualisieren und docker
 
 SvelteKit, Svelte 5, TypeScript, Tailwind CSS 4, Node.js, better-sqlite3, REST-Endpunkte unter /api/v1 und SSE. Eine lokale SQLite-Datenbank, keine externe Telemetrie. Theme und Sprache werden pro Browser gespeichert.
 
-API-Endpunkte: POST /api/v1/auth/login, POST /api/v1/auth/logout; GET/POST /api/v1/catalog; GET/POST /api/v1/shopping; PATCH/DELETE /api/v1/shopping/:id; GET/POST /api/v1/pantry; PATCH/DELETE /api/v1/pantry/:id; GET /api/v1/events; GET /api/v1/health.
+API-Endpunkte: POST /api/v1/auth/login, POST /api/v1/auth/logout; GET/POST /api/v1/catalog; GET/POST /api/v1/shopping; POST /api/v1/shopping/bulk; PATCH/DELETE /api/v1/shopping/:id; GET/POST /api/v1/pantry; PATCH/DELETE /api/v1/pantry/:id; GET /api/v1/events; GET /api/v1/health.
 
 Alle API-Endpunkte außer Login und Healthcheck verlangen eine gültige Session. Bei PATCH schützt expectedVersion gegen unbemerktes Überschreiben paralleler Änderungen.
 
@@ -93,6 +93,26 @@ Alle API-Endpunkte außer Login und Healthcheck verlangen eine gültige Session.
 - Der Katalog ist bewusst kuratiert, keine vollständige Supermarkt-Produktdatenbank.
 - Für breitere PWA-Kompatibilität fehlen noch native PNG-Icons.
 - Browser-End-to-End-Tests und Tests auf dem Zielserver sind noch nicht abgeschlossen.
+
+## Proxmox-Beta-Update für bestehende Tester
+
+Vor dem Branchwechsel ein SQLite-Backup anlegen und nach Möglichkeit extern sichern:
+
+```bash
+cd ~/apps/smart-shopping-assistant
+sudo docker compose exec shopping node scripts/backup.mjs /data/backups/pre-gallery.db
+sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/pre-gallery.db "$HOME/pre-gallery.db"
+sudo chown "$USER:$USER" "$HOME/pre-gallery.db"
+chmod 600 "$HOME/pre-gallery.db"
+
+git fetch origin
+git switch --track origin/feature/onboarding-tiles-categories
+sudo docker compose up -d --build
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+Die `.env`-Datei, Passwort-Hashes und das Docker-Volume bleiben unverändert. Nicht `docker compose down -v` ausführen; das würde das Datenvolume löschen. Anschließend im Browser neu laden. Der Einführungsdialog erscheint einmal je Browserinstallation und kann im Einstellungsmenü erneut geöffnet werden.
 
 ## Entwicklungsworkflow und Lizenz
 
