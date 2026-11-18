@@ -155,7 +155,7 @@ assert.equal(res.status,200,'consume last unit');
 res=await raw('/pantry',opts);assert.ok(!(await res.json()).items.some(i=>i.id===stock.id),'empty stock entry removed');
 res=await raw('/catalog',opts);assert.ok((await res.json()).products.some(p=>p.id===pantryCustom.productId),'catalog product preserved');
 // Release gate: verify import confirmation and idempotence with synthetic data.
-res=await raw('/health');assert.equal((await res.json()).version,'1.0.0','stable version');
+res=await raw('/health');assert.equal((await res.json()).version,'1.0.1-rc.1','stable version');
 res=await raw('/pantry/scan',{method:'POST',headers:{Origin:BASE,'Content-Type':'text/plain','X-Scan-Mode':'receipt',Cookie:cookie},body:'MILCH 1,29 A\nSUMME 1,29'});
 assert.equal(res.status,200,'local receipt scan');
 assert.equal((await res.json()).items.length,1,'receipt product suggestion');
