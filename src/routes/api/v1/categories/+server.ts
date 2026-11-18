@@ -1,15 +1,9 @@
 import type { RequestHandler } from './$types';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { database } from '#lib/server/db.ts';
 import { parsed, response } from '#lib/server/http.ts';
 import { changed } from '#lib/server/events.ts';
-
-export const categoryName = z.string().trim().min(1).max(70);
-export const categoryBody = z.object({
-  nameDe: categoryName,
-  nameEn: categoryName.optional()
-}).strict();
+import { categoryBody } from '#lib/server/category-schema.ts';
 
 export const GET: RequestHandler = () => {
   return response({categories: database().prepare(
