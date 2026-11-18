@@ -1,10 +1,19 @@
 # Smart Shopping Assistant 🛒
 
-**Version: 0.3.1-beta.1 (Entwicklungs-Beta)**
+**Version: 0.3.2-beta.1 (Entwicklungs-Beta)**
 
 Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein Fork oder Clone von Koffan.
 
 > ⚠️ **Beta-Kandidat:** Der Code liegt auf einem Entwicklungsbranch. Automatisierter Build, Docker-Start, API-Smoke-Tests und Produktions-Audit wurden erfolgreich in GitHub Actions ausgeführt. Tests im echten Heimnetz, HTTPS und Browser-End-to-End-Prüfungen stehen noch aus. Nicht als produktionsreif einstufen.
+
+## Neu in Beta 0.3.2: Vorratskategorien und Verbrauch
+
+- Vorräte werden nach den aktuellen Produktkategorien gruppiert und innerhalb der Gruppe alphabetisch sortiert. Eigene Kategorien werden berücksichtigt; nicht zuordenbare Einträge erscheinen unter Weitere Produkte.
+- Kategorien einzeln oder gemeinsam öffnen/schließen. Aufklappzustand pro Browser, getrennt von der Einkaufsliste.
+- Plus-/Minus-Buttons ändern Stück/Packung um 1, g/ml um 100 und kg/l um 0,1. Die Mengenanzeige öffnet die genaue Eingabe. Beim letzten Bestand wird nach Rückfrage nur der Vorratseintrag entfernt, nicht das Katalogprodukt. Keine negativen Mengen.
+- Versionsprüfung bei jeder Mengenänderung einschließlich Entfernen verhindert das Überschreiben neuerer Bestände. Konflikte zeigen einen Hinweis und laden den aktuellen Bestand.
+- Keine neue Schema-Migration oder npm-Abhängigkeit. Testbranch: `feature/pantry-category-controls`. Vor Update Backup erstellen, `git fetch origin`, `git switch --track origin/feature/pantry-category-controls`, `sudo docker compose up -d --build`. Health-Version: `0.3.2-beta.1`.
+- CI und manueller Browser-Test sind vor Freigabe erforderlich.
 
 ## Neu im kommenden Beta-Update: Produktauswahl und Kategorien
 
