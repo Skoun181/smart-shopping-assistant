@@ -24,7 +24,7 @@ process.stdin.on('data', (key) => {
     }
     const salt = randomBytes(16);
     const digest = scryptSync(password, salt, 32, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
-    console.log('APP_PASSWORD_HASH=scrypt$32768$8$1$' + salt.toString('base64') + ':' + digest.toString('base64'));
+    console.log("APP_PASSWORD_HASH='scrypt$32768$8$1$" + salt.toString('base64') + ':' + digest.toString('base64') + "'");
     console.log('Den generierten Wert vollständig in die .env-Datei kopieren.');
   } else if (key === '\u007f') chars.pop();
   else if (key.length === 1) chars.push(key);
