@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import StarterPicker from '#lib/ui/StarterPicker.svelte';
+  import GroupedShopping from '#lib/ui/GroupedShopping.svelte';
+  import {productEmoji} from '#lib/ui/product-emoji.ts';
   type Product={id:string;category_id:string;name_de:string;name_en:string|null;brand:string|null;source:string};
   type Category={id:string;name_de:string;name_en:string};
   type Variant={id:string;product_id:string;label_de:string;label_en:string|null};
@@ -13,6 +16,8 @@
   let modal:'shopping'|'pantry'|'custom'|null=null;
   let loading=true,error='',working=false;
   let live:EventSource|undefined;
+  let showStarter=false,starterInitial=false;
+  const STARTER_KEY='ssa:starter-completed:v1';
   const tr=(de:string,en:string)=>lang==='de'?de:en;
   const title=(item:Product|Item)=>lang==='en'&&item.name_en?item.name_en:('name_de' in item&&item.name_de?item.name_de:'name_snapshot' in item?item.name_snapshot:'');
   const itemVariant=(item:Item)=>lang==='en'&&item.variant_en?item.variant_en:item.variant_de;
@@ -36,13 +41,30 @@
     const savedLang=localStorage.getItem('shopping-lang');
     lang=savedLang==='de'||savedLang==='en'?savedLang:(navigator.language.startsWith('de')?'de':'en');
     theme=localStorage.getItem('shopping-theme')==='violet'?'violet':'mint';
-    refresh();
+    void refresh().then(()=>{
+      if(!error && !localStorage.getItem(STARTER_KEY)){
+        starterInitial=true;showStarter=true;
+      }
+    });
     live=new EventSource('/api/v1/events');
     live.onmessage=(event)=>{try{refresh(JSON.parse(event.data).topic);}catch{refresh();}};
     return ()=>live?.close();
   });
   function chooseLanguage(v:'de'|'en'){lang=v;localStorage.setItem('shopping-lang',v);}
   function chooseTheme(v:'mint'|'violet'){theme=v;localStorage.setItem('shopping-theme',v);}
+  function openStarter(initial=false){
+    modal=null;starterInitial=initial;showStarter=true;error='';
+  }
+  function closeStarter(){
+    showStarter=false;
+    localStorage.setItem(STARTER_KEY,'1');
+  }
+  async function saveStarter(items:Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>){
+    await request('/shopping/bulk',{method:'POST',body:JSON.stringify({items})});
+    closeStarter();
+    tab='shopping';
+    await refresh('shopping');
+  }
   function openModal(v:'shopping'|'pantry'|'custom'){modal=v;chosen='';chosenVariant='';qty=1;unit='pcs';query='';note='';error='';}
   async function addItem(){
     if(!chosen||qty<=0)return;working=true;
@@ -101,27 +123,46 @@
           <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={()=>updateItem(item,'shopping',{checked:true})}/><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
         {/each}<button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Produkt hinzufügen','Add product')}</button>
       </section>
-    {:else if tab==='shopping'||tab==='pantry'}
-      <div class="heading section-head"><p class="subtle">{tab==='shopping'?tr('Gemeinsam einkaufen.','Shop together.'):tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><button class="primary" onclick={()=>openModal(tab==='shopping'?'shopping':'pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div>
-      {#if (tab==='shopping'?shopping:pantry).length===0}<section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>{/if}
+    {:else if tab==='shopping'}
+      <div class="heading section-head shopping-controls">
+        <p class="subtle">{tr('Deine Produkte, übersichtlich nach Kategorien.','Your products, organized by category.')}</p>
+        <div class="shopping-actions">
+          <button class="secondary" onclick={()=>openStarter(false)}>▦ {tr('Mehrere auswählen','Select multiple')}</button>
+          <button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Einzeln hinzufügen','Add one')}</button>
+        </div>
+      </div>
+      {#if shopping.length===0}
+        <section class="panel empty">
+          <p>{tr('Noch nichts auf der Liste. Wähle deine Produkte einfach als Kacheln aus.','Your list is empty. Pick products from the tile gallery.')}</p>
+          <button class="primary" onclick={()=>openStarter(false)}>▦ {tr('Produktempfehlungen öffnen','Open product gallery')}</button>
+        </section>
+      {:else}
+        <GroupedShopping items={shopping} {products} {categories} {lang}
+          onUpdate={(item,body)=>updateItem(item,'shopping',body)}
+          onRemove={(item)=>removeItem(item,'shopping')}/>
+      {/if}
+    {:else if tab==='pantry'}
+      <div class="heading section-head"><p class="subtle">{tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><button class="primary" onclick={()=>openModal('pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div>
+      {#if pantry.length===0}<section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>{/if}
       <section class="panel list">
-        {#each (tab==='shopping'?shopping:pantry) as item(item.id)}
-          <div class:done={!!item.checked&&tab==='shopping'} class="item">
-            {#if tab==='shopping'}<input type="checkbox" checked={!!item.checked} aria-label={tr('Kaufstatus ändern','Change purchase status')} onchange={()=>updateItem(item,'shopping',{checked:!item.checked})}/>{:else}<span class="symbol">▤</span>{/if}
+        {#each pantry as item(item.id)}
+          <div class="item">
+            <span class="symbol">▤</span>
             <div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)} {item.note?' · '+item.note:''}</small></div>
-            <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,tab==='shopping'?'shopping':'pantry',{quantity:Number(raw)});}}>✎</button>
-            <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,tab==='shopping'?'shopping':'pantry')}>×</button>
+            <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,'pantry',{quantity:Number(raw)});}}>✎</button>
+            <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,'pantry')}>×</button>
           </div>
         {/each}
       </section>
     {:else if tab==='catalog'}
       <div class="heading section-head"><p class="subtle">{tr('Deine Standard- und eigenen Produkte.','Your standard and custom products.')}</p><button class="primary" onclick={()=>openModal('custom')}>＋ {tr('Eigenes Produkt','Custom product')}</button></div>
       <div class="filters"><input aria-label={tr('Produkte suchen','Search products')} placeholder={tr('Produkte suchen…','Search products…')} bind:value={query}/><select aria-label={tr('Kategorie','Category')} bind:value={categoryFilter}><option value="">{tr('Alle Kategorien','All categories')}</option>{#each categories as cat}<option value={cat.id}>{lang==='de'?cat.name_de:cat.name_en}</option>{/each}</select></div>
-      <section class="panel list">{#each available as p(p.id)}<div class="item"><span class="symbol">◈</span><div class="item-name"><strong>{title(p)}</strong><small>{p.brand??categories.find(c=>c.id===p.category_id)?.[lang==='de'?'name_de':'name_en']??''}</small></div>{#if p.source==='custom'}<span class="tag">{tr('Eigen','Custom')}</span>{/if}<button class="small-button" title={tr('Zur Einkaufsliste','Add to shopping list')} onclick={()=>{openModal('shopping');chosen=p.id;}}>＋</button></div>{/each}</section>
+      <section class="panel list">{#each available as p(p.id)}<div class="item"><span class="symbol">{productEmoji(p.name_de,p.category_id)}</span><div class="item-name"><strong>{title(p)}</strong><small>{p.brand??categories.find(c=>c.id===p.category_id)?.[lang==='de'?'name_de':'name_en']??''}</small></div>{#if p.source==='custom'}<span class="tag">{tr('Eigen','Custom')}</span>{/if}<button class="small-button" title={tr('Zur Einkaufsliste','Add to shopping list')} onclick={()=>{openModal('shopping');chosen=p.id;}}>＋</button></div>{/each}</section>
     {:else if tab==='settings'}
       <section class="panel preferences"><h2>{tr('Darstellung','Appearance')}</h2><p class="subtle">{tr('Die Auswahl gilt nur für diesen Browser.','Preferences apply to this browser only.')}</p>
         <h3>{tr('Farbschema','Theme')}</h3><div class="choices"><button class:chosen={theme==='mint'} onclick={()=>chooseTheme('mint')}>🟢 Dark Mint</button><button class:chosen={theme==='violet'} onclick={()=>chooseTheme('violet')}>🟣 Dark Violet</button></div>
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
+        <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
         <p class="subtle">{tr('Beta 0.1 · Nur für private Heimnetzwerke','Beta 0.1 · Private home networks only')}</p>
       </section>
@@ -159,6 +200,10 @@
       </div>
     </div>
   {/if}
+  {#if showStarter}
+    <StarterPicker {products} {categories} {variants} {lang} initial={starterInitial}
+      onClose={closeStarter} onSave={saveStarter}/>
+  {/if}
 </div>
 <style>
   :global(*){box-sizing:border-box}:global(body){margin:0;font-family:Inter,system-ui,sans-serif;background:#111419}:global(button),:global(input),:global(select){font:inherit}:global(button){cursor:pointer}
@@ -176,4 +221,8 @@
   .mobile-nav{display:none}.backdrop{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:20;padding:16px}.dialog{width:min(100%,520px);max-height:90vh;overflow-y:auto;background:#222a34;border:1px solid #48535f;border-radius:22px;padding:24px}.dialog form{display:grid;gap:16px;margin-top:16px}.dialog label{display:grid;gap:7px;font-size:13px;color:#b7c4d2}.dialog .qty-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dialog input:focus,.dialog select:focus{outline:2px solid var(--accent)}
   @media(max-width:800px){.sidebar{display:none}main{padding:24px 18px 110px}.stats{gap:10px}.stat{padding:15px;border-radius:14px}.stat strong{font-size:26px}.panel{padding:16px}.mobile-nav{position:fixed;bottom:0;left:0;right:0;background:#1b212a;border-top:1px solid #343e49;display:flex;justify-content:space-around;z-index:10;padding:8px 5px max(10px,env(safe-area-inset-bottom))}.mobile-nav button{display:grid;justify-items:center;gap:4px;min-width:54px;border:0;background:none;color:#9cabb9;font-size:22px}.mobile-nav button small{font-size:10px}.mobile-nav button.active{color:var(--accent)}}
   @media(max-width:460px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stats .stat:last-child{grid-column:span 2}.filters{flex-direction:column}.filters select{max-width:none}.dialog{padding:17px}.item{gap:9px}.beta{display:none}}
+
+  .shopping-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .shopping-controls{gap:14px}
+  @media(max-width:600px){.shopping-controls{align-items:stretch;flex-direction:column}.shopping-actions{width:100%}.shopping-actions button{flex:1}}
 </style>
