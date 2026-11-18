@@ -29,7 +29,7 @@ Die Übersicht zeigt offene Einkäufe. In der Einkaufsliste und bei den Vorräte
 
 ## Netzwerkzugriff – 1.0.1 Release Candidate
 
-Direkter Zugriff über `http://SERVER-IP:3000` und optional HTTPS über NGINX ohne manuelle Origin-Konfiguration. Bestehende `.env` bleibt erhalten; `ORIGIN` und `BIND_ADDRESS` werden in diesem Teststand bewusst nicht mehr verwendet. Der direkte IPv4-Port wird für das Heimnetz veröffentlicht, der vertrauenswürdige Proxy-Port 3001 standardmäßig nur an localhost. Für eine getrennte NGINX-VM steht eine optionale Compose-Erweiterung mit fester Proxy-IP zur Verfügung. Firewall beachten; keine Router-Freigabe. Details und NGINX-Beispiel: [Netzwerk-Anleitung](docs/network-access.md) / [NGINX-Konfiguration](deploy/nginx-location.conf).
+Direkter Zugriff über `http://SERVER-IP:3000` und optional über NGINX auf demselben Port. Keine zusätzlichen Proxy-Ports, keine IP-Freigabeliste, kein Compose-Override und keine Änderungen an der `.env` nötig. Alte `ORIGIN`- und `BIND_ADDRESS`-Werte werden ignoriert. NGINX setzt `Host` und `X-Forwarded-Proto`. Der Server akzeptiert den Protokoll-Header ohne Proxy-Allowlist; ausschließlich im vertrauenswürdigen Heimnetz betreiben, keine Router-Freigabe. Details: [Netzwerk-Anleitung](docs/network-access.md) / [NGINX-Beispiel](deploy/nginx-remote.example.conf).
 
 Der folgende Installationsabschnitt beschreibt weiterhin den veröffentlichten Stand `v1.0.0`. Für den Test des neuen Netzwerkzugriffs den Feature-Branch `feature/automatic-network-access` statt des Tags auschecken und die Netzwerk-Anleitung beachten. Einzelne HTTPS-Sitzungen müssen neu angemeldet werden.
 
