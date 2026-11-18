@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import { parseCSV,CSV_TEMPLATE,importPrompt,normalized,units,type Draft,type Unit } from '../pantry-import';
   import { productEmoji } from './product-emoji';
+  import { matchReceipt,rowIssues } from '../receipt-matching';
   type Product={id:string;name_de:string;name_en:string|null;category_id:string};
   type Category={id:string;name_de:string;name_en:string};
-  type Row=Draft & {key:number;categoryId:string;selected:boolean;productId:string|null};
+  type Row=Draft & {key:number;categoryId:string;selected:boolean;productId:string|null;uncertain?:boolean;estimated?:boolean};
   type Confirmed={name:string;quantity:number;unit:Unit;categoryId:string;variant:string;productId:string|null};
   export let products:Product[];
   export let categories:Category[];
@@ -23,9 +24,20 @@
     fetch('/api/v1/pantry/scan').then(async r=>{if(r.ok)vision=!!(await r.json()).vision;}).catch(()=>{}).finally(()=>capabilitiesLoaded=true);
   });
   $: selected=rows.filter(r=>r.selected);
-  $: ready=selected.length>0&&selected.length<=200&&selected.every(r=>r.name.trim().length>0&&r.name.trim().length<=120&&r.quantity!==null&&Number.isFinite(r.quantity)&&r.quantity>0&&r.quantity<=1000000&&categories.some(c=>c.id===r.categoryId)&&r.variant.length<=80);
+  $: invalid=selected.filter(r=>rowIssues(r,categories).length>0);
+  $: ready=selected.length>0&&selected.length<=200&&invalid.length===0;
+  function issueLabel(issue:string){
+    return issue==='name'?tr('Produktname fehlt oder ungültig','Product name missing or invalid'):issue==='quantity'?tr('Gültige Menge eingeben','Enter a valid quantity'):issue==='category'?tr('Kategorie auswählen','Select a category'):tr('Variante zu lang','Variant too long');
+  }
+  function fillQuantities(){
+    rows=rows.map(r=>r.selected&&(r.quantity===null||!Number.isFinite(r.quantity)||r.quantity<=0)?{...r,quantity:1,unit:'pcs',estimated:true}:r);approved=false;
+  }
   $: prompt=importPrompt(categories.map(c=>c.name_de));
-  function resolve(d:Draft):Row{
+  function resolve(d:Draft,receipt=false):Row{
+    if(receipt){
+      const m=matchReceipt(d,products,categories);
+      return {...d,...m,key:++serial,categoryId:m.category,selected:true};
+    }
     const candidates=products.filter(p=>[p.name_de,p.name_en||''].some(n=>normalized(n)===normalized(d.name)));
     const exact=candidates.length===1?candidates[0]:undefined;
     const category=categories.find(c=>[c.id,c.name_de,c.name_en].some(n=>normalized(n)===normalized(d.category)));
@@ -35,6 +47,8 @@
     rows=rows.map(r=>{
       if(r.key!==row.key)return r;
       const next={...r,...patch};
+      if(patch.quantity!==undefined||patch.unit!==undefined)next.estimated=false;
+      if(patch.name!==undefined||patch.categoryId!==undefined)next.uncertain=false;
       if(patch.name!==undefined||patch.categoryId!==undefined){
         const p=products.filter(p=>p.category_id===next.categoryId&&normalized(p.name_de)===normalized(next.name));
         next.productId=p.length===1?p[0].id:null;
@@ -52,7 +66,7 @@
   }
   function loadDraft(items:Draft[]){
     if(!items.length){message=tr('Keine sicheren Produktvorschläge gefunden. Ergänze Zeilen manuell oder nutze CSV.','No reliable suggestions found. Add rows manually or use CSV.');return;}
-    rows=items.map(resolve);approved=false;importId=random();
+    rows=items.map(d=>resolve(d,mode==='receipt'));approved=false;importId=random();
   }
   async function analyze(){
     if(busy)return;busy=true;message='';
@@ -118,9 +132,12 @@
         <h3>{tr('Importvorschau','Import preview')} · {selected.length}/{rows.length}</h3>
         <p class="hint">{tr('Import erhöht den Bestand durch zusätzliche Einträge. Prüfe insbesondere Kühlschrankfotos auf bereits erfasste Produkte. Unbekannte Mengen und Kategorien musst du ergänzen.','Import adds new stock entries. Check fridge photos for items already recorded. Fill in unknown quantities and categories.')}</p>
         {#each rows as row(row.key)}
-          <article class:excluded={!row.selected}>
+          <article class:excluded={!row.selected} class:invalid={row.selected&&rowIssues(row,categories).length>0}>
             <div class="rowhead"><label class="include"><input type="checkbox" checked={row.selected} disabled={busy} onchange={e=>edit(row,{selected:e.currentTarget.checked})}/> {productEmoji(row.name,row.categoryId)} {tr('Übernehmen','Include')}</label><button type="button" disabled={busy} onclick={()=>{rows=rows.filter(r=>r.key!==row.key);approved=false;}} aria-label={tr('Entfernen','Remove')}>×</button></div>
-            {#if row.source}<small>{row.source}</small>{/if}
+            {#if row.source}<small>{tr('Original: ','Original: ')}{row.source}</small>{/if}
+            {#if row.uncertain}<small class="warning">{tr('Unsichere Produktzuordnung – bitte prüfen.','Uncertain product match – please review.')}</small>{/if}
+            {#if row.estimated}<small class="warning">{tr('Menge 1 Stück vorgeschlagen – Packungsgröße und Anzahl prüfen.','Suggested quantity: 1 piece – check package size and count.')}</small>{/if}
+            {#if row.selected&&rowIssues(row,categories).length}<small class="error">{rowIssues(row,categories).map(issueLabel).join(' · ')}</small>{/if}
             <label>{tr('Produktname','Product name')}<input disabled={busy} maxlength="120" value={row.name} oninput={e=>edit(row,{name:e.currentTarget.value})}/></label>
             <label>{tr('Vorhandenes Produkt zuordnen (optional)','Match existing product (optional)')}<select disabled={busy} value={row.productId||''} onchange={e=>chooseProduct(row,e.currentTarget.value)}><option value="">{tr('Freitext / neu','Free text / new')}</option>{#each products as p(p.id)}<option value={p.id}>{p.name_de}</option>{/each}</select></label>
             <div class="fields">
@@ -131,11 +148,14 @@
             <label>{tr('Variante (optional)','Variant (optional)')}<input disabled={busy} maxlength="80" value={row.variant} oninput={e=>edit(row,{variant:e.currentTarget.value})}/></label>
           </article>
         {/each}
+        {#if selected.some(r=>r.quantity===null||!Number.isFinite(r.quantity)||r.quantity<=0)}<button type="button" disabled={busy} onclick={fillQuantities}>{tr('Fehlende Mengen als 1 Stück vorschlagen','Suggest 1 piece for missing quantities')}</button>{/if}
         <button type="button" disabled={busy||rows.length>=200} onclick={addRow}>＋ {tr('Zeile ergänzen','Add row')}</button>
       {/if}
       {#if message}<p class="error" role="alert">{message}</p>{/if}
     </div>
-    {#if rows.length}<footer><label class="include"><input type="checkbox" bind:checked={approved} disabled={busy||!ready}/> {tr('Ich habe die gewählten Produkte, Mengen und Kategorien geprüft.','I have reviewed the selected products, quantities and categories.')}</label><button class="primary" type="button" disabled={!approved||!ready||busy} onclick={save}>{busy?tr('Import läuft …','Importing …'):tr('Verbindlich importieren','Confirm import')+' · '+selected.length}</button></footer>{/if}
+    {#if rows.length}<footer>
+      {#if !ready}<p class="error" role="status">{invalid.length?tr(invalid.length+' ausgewählte Position(en) müssen noch korrigiert oder abgewählt werden.','Correct or exclude '+invalid.length+' selected item(s).'):tr('Mindestens ein Produkt auswählen.','Select at least one product.')}</p>{/if}
+      <label class="include"><input type="checkbox" bind:checked={approved} disabled={busy}/> {tr('Ich habe die gewählten Produkte, Mengen und Kategorien geprüft.','I have reviewed the selected products, quantities and categories.')}</label><button class="primary" type="button" disabled={!approved||!ready||busy} onclick={save}>{busy?tr('Import läuft …','Importing …'):tr('Verbindlich importieren','Confirm import')+' · '+selected.length}</button></footer>{/if}
   </div>
 </div>
 <style>
@@ -146,7 +166,7 @@
   .modes,.actions{display:flex;flex-wrap:wrap;gap:8px}.modes{padding:0 22px 12px}.modes button{flex:1}
   .scroll{padding:0 22px 20px;overflow:auto;min-height:0;display:grid;gap:12px}.scroll p,.scroll h3{margin:0}.hint{padding:10px;border-radius:9px;background:#303b45}.error{color:#ffc1c1}
   label{display:grid;gap:5px;font-size:12px;color:#d5e1ea}input,select,textarea{min-width:0;width:100%;background:#141c23;color:#f4f7fa;border:1px solid #596977;border-radius:9px;padding:10px;font:inherit;box-sizing:border-box}
-  article{border:1px solid #495764;border-radius:13px;padding:13px;display:grid;gap:10px;background:#262f39}.excluded{opacity:.58}.rowhead,.fields{display:flex;gap:10px;align-items:center;justify-content:space-between}.fields label{flex:1}.include{display:flex;align-items:center;gap:8px}.include input{width:20px;height:20px;accent-color:var(--accent,#a7f3d0);flex-shrink:0}
+  article{border:1px solid #495764;border-radius:13px;padding:13px;display:grid;gap:10px;background:#262f39}.excluded{opacity:.58}.invalid{border-color:#ed9c9c}.warning{color:#ffda94}footer p{margin:0}.rowhead,.fields{display:flex;gap:10px;align-items:center;justify-content:space-between}.fields label{flex:1}.include{display:flex;align-items:center;gap:8px}.include input{width:20px;height:20px;accent-color:var(--accent,#a7f3d0);flex-shrink:0}
   footer{padding:14px 22px;border-top:1px solid #465361;background:#1c252d;display:grid;gap:10px}small{color:#a8b8c6;overflow-wrap:anywhere}
   @media(max-width:550px){.scrim{padding:0}.dialog{max-height:100dvh;width:100%;height:100dvh;border-radius:0}header{padding:16px}.modes{padding:0 12px 12px}.scroll{padding:0 14px 14px}footer{padding:12px 14px max(12px,env(safe-area-inset-bottom))}}
 </style>
