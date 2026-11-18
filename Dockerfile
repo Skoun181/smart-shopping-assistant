@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package*.json ./
@@ -6,7 +6,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run check && npm run build && npm prune --omit=dev
 
-FROM node:24-alpine
+FROM node:26-alpine
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DATABASE_PATH=/data/shopping.db BODY_SIZE_LIMIT=6M
 WORKDIR /app
 RUN apk add --no-cache libstdc++ tesseract-ocr tesseract-ocr-data-deu tesseract-ocr-data-eng poppler-utils && addgroup -S shopping && adduser -S shopping -G shopping && mkdir -p /data && chown shopping:shopping /data
