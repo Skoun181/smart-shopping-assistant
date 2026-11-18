@@ -15,7 +15,7 @@ function listener(proxy){
       res.writeHead(400,{'Content-Type':'text/plain','Cache-Control':'no-store'}).end('Invalid host or proxy protocol');
       return;
     }
-    if(!req.url?.startsWith('/')||req.url.startsWith('//')){
+    if(!req.url?.startsWith('/')||req.url.startsWith('//')||req.url.split('?')[0].includes('\\')){
       res.writeHead(400).end('Invalid request target');return;
     }
     handler(req,res);
