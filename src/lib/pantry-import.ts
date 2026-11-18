@@ -46,7 +46,8 @@ export function receiptSuggestions(text:string):Draft[]{
   const out:Draft[]=[];
   for(const original of text.split(/\r?\n/)){
     const line=original.trim();
-    if(!line||ignored.test(line))continue;
+    if(/^(?:summe|gesamtbetrag|zwischensumme|total)\b/i.test(line)) {if(out.length)break;continue;}
+    if(!line||ignored.test(line)||/^(?:[A-D]\s*=|geg\.|bon[- ]?nr|markt:|kasse:|tse[-:])/i.test(line))continue;
     const m=line.match(/^(.+?)\s+\d{1,6}[,.]\d{2}\s*(?:EUR|€|[ABCD*])?\s*$/i);
     if(!m)continue;
     let label=m[1].trim().replace(/^\d{6,}\s+/,'');
