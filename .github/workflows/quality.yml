@@ -1,9 +1,9 @@
 name: Quality and stable release
 on:
   push:
-    branches: ['feature/**', main]
+    branches: ['develop/**', 'stable/**', 'feature/**', main]
   pull_request:
-    branches: [main, feature/beta-0.1-foundation, feature/onboarding-tiles-categories, feature/catalog-management-and-free-text, feature/pantry-import-assistant, feature/smart-receipt-matching]
+    branches: ['develop/**', 'stable/**', main]
 permissions:
   contents: read
 jobs:
