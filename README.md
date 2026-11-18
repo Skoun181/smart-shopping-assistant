@@ -32,7 +32,7 @@ Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein
 1. Repository klonen (privates GitHub-Repository; Anmeldung erforderlich).
 2. Zum Branch feature/beta-0.1-foundation wechseln.
 3. Die Datei .env.example nach .env kopieren.
-4. Im Projektordner mit Node.js 24 npm install und danach npm run hash-password ausführen. Den angezeigten Hash vollständig als APP_PASSWORD_HASH in .env eintragen.
+4. Mit Node.js 24: `npm ci` und `npm run hash-password`; alternativ direkt über Docker: `docker run --rm -it -v "$PWD/scripts:/work:ro" -w /work node:24-alpine node hash-password.mjs`. Die erzeugte `APP_PASSWORD_HASH`-Zeile vollständig nach `.env` übernehmen, **einschließlich der einfachen Anführungszeichen**, damit Docker Compose die Dollarzeichen nicht interpoliert.
 5. In .env die ORIGIN auf die **exakte** im Browser verwendete Adresse einstellen. Lokal am Server beispielsweise http://localhost:3000.
 6. docker compose up -d --build starten.
 7. Dieselbe URL im Browser aufrufen und anmelden.
