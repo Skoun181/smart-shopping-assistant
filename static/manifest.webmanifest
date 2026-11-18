@@ -1,0 +1,14 @@
+{
+  "name": "Smart Shopping Assistant",
+  "short_name": "Shopping",
+  "description": "Private Einkaufslisten und Vorräte für deinen Haushalt",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111419",
+  "theme_color": "#111419",
+  "lang": "de",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}
