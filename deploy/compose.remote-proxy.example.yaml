@@ -1,0 +1,10 @@
+# Copy to compose.override.yaml in the project root (keep local, do not commit).
+# Change both example IPs if necessary. No .env changes.
+# Requires Docker Compose >= 2.24.4 for !override.
+services:
+  shopping:
+    environment:
+      TRUSTED_PROXY_IP: "192.168.0.66"
+    ports: !override
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
+      - "192.168.0.150:3001:3001"
