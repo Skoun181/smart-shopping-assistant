@@ -3,7 +3,7 @@ on:
   push:
     branches: ['feature/**', main]
   pull_request:
-    branches: [main]
+    branches: [main, feature/beta-0.1-foundation]
 permissions:
   contents: read
 jobs:
