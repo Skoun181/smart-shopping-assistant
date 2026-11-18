@@ -163,7 +163,7 @@
 <svelte:head><title>Smart Shopping Assistant</title><meta name="description" content="Private Einkaufslisten und Vorräte"/></svelte:head>
 <div class:violet={theme==='violet'} class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="brand-icon">🛒</span><div><strong>Smart Shopping</strong><small>Assistant · Beta</small></div></div>
+    <div class="brand"><span class="brand-icon">🛒</span><div><strong>Smart Shopping</strong><small>Assistant · Stable</small></div></div>
     <nav aria-label="Navigation">
       <button class:active={tab==='dashboard'} onclick={()=>tab='dashboard'}>⌂ &nbsp; {tr('Übersicht','Overview')}</button>
       <button class:active={tab==='shopping'} onclick={()=>tab='shopping'}>☷ &nbsp; {tr('Einkaufsliste','Shopping list')}</button>
@@ -175,7 +175,7 @@
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.3.2</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">V1.0.0 STABLE</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -231,7 +231,7 @@
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Beta 0.3.2 · Nur für private Heimnetzwerke','Beta 0.3.2 · Private home networks only')}</p>
+        <p class="subtle">{tr('Version 1.0.0 · Nur für private Heimnetzwerke','Version 1.0.0 · Private home networks only')}</p>
       </section>
     {/if}
   </main>
