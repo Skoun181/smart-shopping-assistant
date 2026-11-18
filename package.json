@@ -28,7 +28,7 @@
     "@sveltejs/vite-plugin-svelte": "latest",
     "@tailwindcss/vite": "^4.3.5",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.6",
     "drizzle-kit": "^0.31.11",
     "svelte-check": "latest",
     "tailwindcss": "^4.3.5",
