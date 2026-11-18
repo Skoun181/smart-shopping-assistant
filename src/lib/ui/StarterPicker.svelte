@@ -13,6 +13,7 @@
   export let lang:'de'|'en';
   export let initial = false;
   export let onClose: () => void;
+  export let onCustom: (name: string) => void;
   export let onSave: (items: Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>) => Promise<void>;
 
   const tr = (de:string,en:string) => lang === 'de' ? de : en;
@@ -92,6 +93,12 @@
         placeholder={tr('Alle Produkte durchsuchen, z. B. Milch …','Search all products, e.g. Milk …')}
         aria-label={tr('Produkte suchen','Search products')}/>
       <span class="total">{filtered.length} {tr('Produkte','products')}</span>
+    </div>
+    <div class="free-entry">
+      <span>{tr('Produkt fehlt im Katalog?','Can’t find a product?')}</span>
+      <button type="button" onclick={()=>onCustom(search.trim())}>
+        ✎ {search.trim()?tr('„'+search.trim().slice(0,50)+'“ selbst hinzufügen','Add “'+search.trim().slice(0,50)+'” manually'):tr('Eigenes Produkt frei eingeben','Enter any product manually')}
+      </button>
     </div>
     <div class="picker-scroll">
       {#each groups as group (group.category.id)}
@@ -182,6 +189,8 @@
   .searchbar>span:first-child{font-size:25px;color:#8ca4b5}.searchbar input{flex:1;min-width:0;border:0;outline:0;color:#f3f7fa;background:transparent;font:inherit;font-size:14px}
   .searchbar input:focus-visible{outline:2px solid var(--accent,#a7f3d0);outline-offset:4px}
   .total{color:#91a1b2;white-space:nowrap;font-size:12px}
+  .free-entry{margin:0 28px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#acc0cd;font-size:12px}
+  .free-entry button{border:1px solid var(--accent,#a7f3d0);border-radius:10px;background:#273941;color:var(--accent,#a7f3d0);font-size:12px;font-weight:700;padding:8px 10px}
   .picker-scroll{overflow-y:auto;overscroll-behavior:contain;padding:0 28px 22px;flex:1;min-height:0}
   .category-block{margin-bottom:16px}.category-toggle{display:flex;align-items:center;gap:12px;color:#edf4f9;background:#28313a;border:1px solid #465361;border-radius:12px;width:100%;padding:13px 16px;text-align:left}
   .category-icon{font-size:21px}.category-title{font-weight:750;flex:1;font-size:14px}
@@ -209,6 +218,8 @@
   .footer-actions .save{background:var(--accent,#a7f3d0);color:var(--accent-ink,#112c28);border-color:var(--accent,#a7f3d0)}
   .footer-actions .save:disabled{opacity:.45;cursor:not-allowed}.alert{color:#ffb6b6;width:100%;font-size:13px;margin:0}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent,#a7f3d0);outline-offset:2px}
+  @media(max-width:820px){.free-entry{margin:0 18px 10px}}
   @media(max-width:820px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.picker-header{padding:20px 18px 14px}.searchbar{margin:0 18px 12px}.picker-scroll{padding:0 18px 14px}footer{padding:13px 18px}}
+  @media(max-width:580px){.free-entry{align-items:stretch;flex-direction:column}}
   @media(max-width:580px){.scrim{padding:0}.picker{width:100%;height:100dvh;max-height:100dvh;min-height:0;border-radius:0}.hero-emoji{font-size:23px;padding:11px}.picker-header{gap:8px}.tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.tile-button{min-height:113px;padding:14px 6px 10px}.illustration{font-size:31px}.product-name{font-size:12px}.tile-options{gap:5px;padding:7px}.total{display:none}.footer-actions{width:100%;justify-content:flex-end}.footer-actions .clear{margin-right:auto}.selection{display:flex;align-items:baseline;gap:6px}footer{gap:7px}.category-toggle{padding:10px 12px}}
 </style>
