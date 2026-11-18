@@ -1,6 +1,6 @@
 # Smart Shopping Assistant 🛒
 
-**Version: 0.1.0-beta.1 (Entwicklungs-Beta)**
+**Version: 0.2.0-beta.1 (Entwicklungs-Beta)**
 
 Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein Fork oder Clone von Koffan.
 
@@ -16,6 +16,16 @@ Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein
 - Der Einführungsstatus und der Aufklappzustand werden **pro Browser lokal** gespeichert, nicht als geteilte Benutzerkonten-Information.
 
 > **Hinweis für bestehende Beta-Tester:** Dieses Update liegt noch im Branch `feature/onboarding-tiles-categories` (PR #2). Es basiert auf der ersten Beta (PR #1). Für den Test auf Proxmox erst den Branch wechseln und ein Backup anlegen; nicht `main` verwenden.
+
+## Neu in Beta 0.2: Vollständigerer Katalog, Freitext und Kategorien
+
+- **Deutlich erweiterter Katalog:** u. a. Zewa, Küchenpapier, Toilettenpapier-Varianten, Binden, Tampons, Slipeinlagen, Windeln, Haushaltsreiniger, weitere Lebensmittel und Hygieneartikel.
+- **Freitextprodukte direkt beim Einkaufen:** Bei `Einkaufsliste → Einzeln hinzufügen → Freitext eingeben` einen beliebigen Produktnamen und eine bestehende Kategorie wählen, optional Variante/Menge/Einheit/Notiz eingeben. Das Produkt wird im Katalog gespeichert und zugleich auf die Liste gesetzt.
+- **Freitext im Vorrat:** Derselbe Eingabemodus steht unter `Vorräte → Hinzufügen` bereit.
+- **Freitext direkt aus der Produkttafel:** Im Willkommens-Popup oder unter `Mehrere auswählen` kannst du fehlende Produkte frei erfassen.
+- **Neuer Tab `Kategorien`:** Alle Produkte nach Kategorie durchsehen, Produkte jeder Art auf eine andere Kategorie umstellen (z. B. Cola zu Snacks), neue Kategorien mit deutschem/optional englischem Namen anlegen, eigene Kategorien umbenennen und *leere* eigene Kategorien wieder löschen.
+- **Daten bleiben erhalten:** Die Migration `0002_custom_categories.sql` ergänzt die vorhandene SQLite-Datenbank, ohne Einkaufspositionen oder alte Produkt-IDs zu ersetzen. Zusätzliche Katalogprodukte werden idempotent eingespielt. Selbst vorgenommene Kategoriezuordnungen werden bei künftigen Neustarts nicht überschrieben.
+- **Transaktional und abgesichert:** Freitextprodukt und Listen- bzw. Vorratsposition werden in einer Transaktion angelegt. Alle neuen Endpunkte bleiben mit Sitzung, Origin-Prüfung, Eingabevalidierung und parametrisiertem SQL geschützt.
 
 ## Aktueller Funktionsumfang
 
@@ -113,6 +123,33 @@ curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
 Die `.env`-Datei, Passwort-Hashes und das Docker-Volume bleiben unverändert. Nicht `docker compose down -v` ausführen; das würde das Datenvolume löschen. Anschließend im Browser neu laden. Der Einführungsdialog erscheint einmal je Browserinstallation und kann im Einstellungsmenü erneut geöffnet werden.
+
+## Bestehende Proxmox-Beta sicher auf Beta 0.2 aktualisieren
+
+Der neue Code liegt auf dem Branch `feature/catalog-management-and-free-text` (PR #3), aufbauend auf `feature/onboarding-tiles-categories` (PR #2). **Vor dem Update ein Backup erzeugen, außerhalb der VM sichern und den Testbranch bewusst wechseln.**
+
+```bash
+cd ~/apps/smart-shopping-assistant
+
+# SQLite konsistent sichern, solange der Container läuft:
+sudo docker compose exec shopping node scripts/backup.mjs /data/backups/pre-beta02.db
+sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/pre-beta02.db "$HOME/pre-beta02.db"
+sudo chown "$USER:$USER" "$HOME/pre-beta02.db"
+chmod 600 "$HOME/pre-beta02.db"
+
+# Branch auschecken und unveränderte .env sowie Docker-Volume behalten:
+git fetch origin
+git switch --track origin/feature/catalog-management-and-free-text
+sudo docker compose up -d --build
+
+# Status und Datenbankmigration prüfen:
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+Das Ergebnis der Health-API muss `"version":"0.2.0-beta.1"` enthalten. Die Anmeldung und bisherigen Artikel bleiben erhalten. Browseransicht ggf. per **Strg+Shift+R** neu laden. **Nicht `docker compose down -v` ausführen** – das entfernt das SQLite-Volume. Für einen belastbaren Backup-Plan die `pre-beta02.db` auch außerhalb der VM aufbewahren.
+
+**Manuelle Abnahme:** Im Katalog „Binden“ und „Tampons“ suchen; einen unbekannten Freitextartikel inklusive Kategorie hinzufügen; in `Kategorien` Cola nach `Snacks & Süßes` verschieben und die Anzeige nach einem Neustart erneut prüfen. Einen neuen Kategorienamen erstellen und ein Produkt hineinverschieben. Erst nach manuellen Proxmox-Tests freigeben.
 
 ## Entwicklungsworkflow und Lizenz
 
