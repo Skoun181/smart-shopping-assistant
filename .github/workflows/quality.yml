@@ -3,7 +3,7 @@ on:
   push:
     branches: ['feature/**', main]
   pull_request:
-    branches: [main, feature/beta-0.1-foundation, feature/onboarding-tiles-categories]
+    branches: [main, feature/beta-0.1-foundation, feature/onboarding-tiles-categories, feature/catalog-management-and-free-text]
 permissions:
   contents: read
 jobs:
