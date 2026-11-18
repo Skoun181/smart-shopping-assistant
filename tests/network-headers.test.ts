@@ -1,6 +1,12 @@
 import {describe,expect,test} from 'vitest';
-import {prepareHeaders} from '../scripts/network-headers.mjs';
+import {prepareHeaders,trustedProxyPeer} from '../scripts/network-headers.mjs';
 describe('trusted network ingress',()=>{
+  test('remote proxy must match actual peer, including IPv4-mapped addresses',()=>{
+    expect(trustedProxyPeer('192.168.0.66','192.168.0.66')).toBe(true);
+    expect(trustedProxyPeer('::ffff:192.168.0.66','192.168.0.66')).toBe(true);
+    expect(trustedProxyPeer('192.168.0.67','192.168.0.66')).toBe(false);
+    expect(trustedProxyPeer(undefined,'192.168.0.66')).toBe(false);
+  });
   test('direct LAN ignores all forged forwarding headers',()=>{
     const h:Record<string,string>={host:'192.168.1.50:3000','x-forwarded-proto':'https','x-forwarded-host':'evil.example','x-real-ip':'1.2.3.4','x-ssa-protocol':'https','x-ssa-client-ip':'8.8.8.8'};
     expect(prepareHeaders(h,'192.168.1.2',false)).toBe(true);
