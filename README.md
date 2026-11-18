@@ -4,7 +4,7 @@
 
 Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein Fork oder Clone von Koffan.
 
-> ⚠️ **Beta-Kandidat:** Der Code wurde auf einem Entwicklungsbranch vorbereitet. Ein erfolgreicher Build, Docker-Start und Sicherheitstest müssen noch bestätigt werden. Nicht als produktionsreif einstufen.
+> ⚠️ **Beta-Kandidat:** Der Code liegt auf einem Entwicklungsbranch. Automatisierter Build, Docker-Start, API-Smoke-Tests und Produktions-Audit wurden erfolgreich in GitHub Actions ausgeführt. Tests im echten Heimnetz, HTTPS und Browser-End-to-End-Prüfungen stehen noch aus. Nicht als produktionsreif einstufen.
 
 ## Aktueller Funktionsumfang
 
@@ -64,7 +64,7 @@ Die Backup-Datei befindet sich zunächst **im selben Volume**. Kopiere sie für 
 
 Vor jedem Update Backup erstellen. Anschließend Branch aktualisieren und docker compose up -d --build aufrufen. Die SQL-Migrationen werden automatisch angewendet. GitHub Actions prüft Typecheck, Unit-Tests, Build, Produktions-Audit und Docker-Build. Dependabot soll wöchentlich Paket- und Image-Updates vorschlagen.
 
-**Achtung:** Ein Lockfile und vollständige lokale End-to-End-Prüfungen stehen noch aus; die Beta ist erst nach erfolgreichen CI- und Heimnetz-Tests abnahmebereit.
+**Paketversionen:** Das npm-Lockfile ist eingecheckt; CI und Docker verwenden `npm ci` für reproduzierbare Installationen. Automatisierte Container-API-Tests waren erfolgreich. Browser-End-to-End-Tests und Tests im echten Heimnetz stehen noch aus.
 
 ## Technischer Aufbau
 
