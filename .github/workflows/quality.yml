@@ -27,3 +27,19 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Docker image
         run: docker build -t smart-shopping-beta .
+      - name: Smoke test container and APIs
+        run: |
+          set -euo pipefail
+          HASH="$(node tests/ci-password.mjs)"
+          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -e ORIGIN=http://127.0.0.1:3333 -e APP_PASSWORD_HASH="$HASH" smart-shopping-beta
+          trap 'docker logs shopping-smoke || true; docker rm -f shopping-smoke || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          node tests/smoke.mjs
+      - name: Emit lockfile snapshot for initial reproducible release
+        run: |
+          echo LOCKFILE_BEGIN_SSA_2026
+          cat package-lock.json
+          echo LOCKFILE_END_SSA_2026
