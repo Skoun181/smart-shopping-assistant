@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import StarterPicker from '#lib/ui/StarterPicker.svelte';
   import GroupedShopping from '#lib/ui/GroupedShopping.svelte';
+  import GroupedPantry from '#lib/ui/GroupedPantry.svelte';
   import CategoriesManager from '#lib/ui/CategoriesManager.svelte';
   import PantryImport from '#lib/ui/PantryImport.svelte';
   import type { Unit } from '#lib/pantry-import.ts';
@@ -127,6 +128,14 @@
     try{await request('/'+scope+'/'+item.id,{method:'PATCH',body:JSON.stringify({...body,expectedVersion:item.version})});await refresh(scope);}
     catch(e){error=tr('Änderung fehlgeschlagen: ','Change failed: ')+String(e);await refresh(scope);}
   }
+  async function setPantryQuantity(item:Item,quantity:number){
+    try{
+      await request('/pantry/'+item.id,{method:'PATCH',body:JSON.stringify({quantity,expectedVersion:item.version})});
+    }finally{await refresh('pantry');}
+  }
+  async function removePantryEntry(item:Item){
+    if(confirm(tr('Vorratseintrag entfernen?','Remove pantry entry?')))await setPantryQuantity(item,0);
+  }
   async function removeItem(item:Item,scope:'shopping'|'pantry'){
     if(!confirm(tr('Eintrag entfernen?','Remove item?')))return;
     try{await request('/'+scope+'/'+item.id,{method:'DELETE'});await refresh(scope);}catch(e){error=String(e);}
@@ -166,7 +175,7 @@
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.3</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">BETA 0.3.2</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -202,17 +211,12 @@
       {/if}
     {:else if tab==='pantry'}
       <div class="heading section-head"><p class="subtle">{tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><div class="shopping-actions"><button class="secondary" onclick={()=>showPantryImport=true}>📷 {tr('Scannen & importieren','Scan & import')}</button><button class="primary" onclick={()=>openModal('pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div></div>
-      {#if pantry.length===0}<section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>{/if}
-      <section class="panel list">
-        {#each pantry as item(item.id)}
-          <div class="item">
-            <span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span>
-            <div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)} {item.note?' · '+item.note:''}</small></div>
-            <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,'pantry',{quantity:Number(raw)});}}>✎</button>
-            <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,'pantry')}>×</button>
-          </div>
-        {/each}
-      </section>
+      {#if pantry.length===0}
+        <section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>
+      {:else}
+        <GroupedPantry items={pantry} {products} {categories} {lang}
+          onQuantity={setPantryQuantity} onRemove={removePantryEntry}/>
+      {/if}
     {:else if tab==='catalog'}
       <div class="heading section-head"><p class="subtle">{tr('Deine Standard- und eigenen Produkte.','Your standard and custom products.')}</p><button class="primary" onclick={()=>openModal('custom')}>＋ {tr('Eigenes Produkt','Custom product')}</button></div>
       <div class="filters"><input aria-label={tr('Produkte suchen','Search products')} placeholder={tr('Produkte suchen…','Search products…')} bind:value={query}/><select aria-label={tr('Kategorie','Category')} bind:value={categoryFilter}><option value="">{tr('Alle Kategorien','All categories')}</option>{#each categories as cat}<option value={cat.id}>{lang==='de'?cat.name_de:cat.name_en}</option>{/each}</select></div>
@@ -227,7 +231,7 @@
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Beta 0.3 · Nur für private Heimnetzwerke','Beta 0.3 · Private home networks only')}</p>
+        <p class="subtle">{tr('Beta 0.3.2 · Nur für private Heimnetzwerke','Beta 0.3.2 · Private home networks only')}</p>
       </section>
     {/if}
   </main>
