@@ -6,6 +6,17 @@ Eigenständiger, privater Einkaufs- und Vorratsmanager für einen Haushalt. Kein
 
 > ⚠️ **Beta-Kandidat:** Der Code liegt auf einem Entwicklungsbranch. Automatisierter Build, Docker-Start, API-Smoke-Tests und Produktions-Audit wurden erfolgreich in GitHub Actions ausgeführt. Tests im echten Heimnetz, HTTPS und Browser-End-to-End-Prüfungen stehen noch aus. Nicht als produktionsreif einstufen.
 
+## Neu im kommenden Beta-Update: Produktauswahl und Kategorien
+
+- Nach der ersten Anmeldung in einem Browser erscheint ein Willkommen-Dialog mit **Kacheln für den gesamten lokalen Produktkatalog**, individuellen Offline-Emojis, Suche und nach Kategorien gegliederter Auswahl.
+- **Mehrfachauswahl**: Produkte wie in einer Fotogalerie antippen, Menge, Einheit und optional Variante einstellen und alle auf einmal zur Einkaufsliste übernehmen.
+- Die gemeinsame Auswahl wird in **einer SQLite-Transaktion** gespeichert; ungültige Batches werden vollständig abgelehnt. Identische offene Positionen werden zusammengeführt.
+- Die Einkaufsliste wird **nach Kategorien sortiert**, mit klappbaren Kategorieüberschriften, Fortschrittsanzeige und Emoji je Artikel.
+- Die Galerie lässt sich überspringen und jederzeit über **Einkaufsliste → Mehrere auswählen** oder **Einstellungen → Produkttafel erneut öffnen** starten.
+- Der Einführungsstatus und der Aufklappzustand werden **pro Browser lokal** gespeichert, nicht als geteilte Benutzerkonten-Information.
+
+> **Hinweis für bestehende Beta-Tester:** Dieses Update liegt noch im Branch `feature/onboarding-tiles-categories` (PR #2). Es basiert auf der ersten Beta (PR #1). Für den Test auf Proxmox erst den Branch wechseln und ein Backup anlegen; nicht `main` verwenden.
+
 ## Aktueller Funktionsumfang
 
 - Gemeinsames Passwort über Scrypt-Hash in der Umgebung, keine Benutzerkonten
