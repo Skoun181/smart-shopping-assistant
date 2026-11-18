@@ -9,3 +9,7 @@ build
 data
 coverage
 *.log
+
+# Local deployment overrides
+compose.override.yaml
+compose.remote-proxy.yaml
