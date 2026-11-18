@@ -1,40 +1,21 @@
-import { isIP } from 'node:net';
-
-/** @param {string} hostname */
-export function localHost(hostname) {
-  const h=hostname.toLowerCase().replace(/^\[|\]$/g,'');
-  if(h==='localhost')return true;
-  if(isIP(h)===4){
-    const [a,b]=h.split('.').map(Number);
-    return a===10||a===127||(a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===169&&b===254);
-  }
-  return isIP(h)===6&&(h==='::1'||/^f[cd][0-9a-f]{2}:/.test(h)||/^fe[89ab][0-9a-f]:/.test(h));
-}
-/** @param {import('node:http').IncomingHttpHeaders} headers @param {string | undefined} remoteAddress @param {boolean} [proxy] */
-export function prepareHeaders(headers,remoteAddress,proxy=false) {
-  const scheme=proxy?headers['x-forwarded-proto']:'http';
-  const real=proxy?headers['x-real-ip']:undefined;
+/** Normalize the public authority and protocol for a single-port LAN deployment.
+ * X-Forwarded-Proto is intentionally accepted from any LAN peer. Forwarded client
+ * addresses are never used for login throttling.
+ * @param {import('node:http').IncomingHttpHeaders} headers
+ * @param {string|undefined} remoteAddress
+ */
+export function prepareHeaders(headers,remoteAddress){
+  const scheme=headers['x-forwarded-proto']??'http';
   const host=headers.host;
   if(typeof scheme!=='string'||!['http','https'].includes(scheme))return false;
   if(typeof host!=='string'||!/^(?:[a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])(?::[0-9]{1,5})?$/.test(host))return false;
   let url;
   try{url=new URL(scheme+'://'+host);}catch{return false;}
-  if(!proxy&&!localHost(url.hostname))return false;
-  // Never let caller-supplied forwarding headers reach the application.
   for(const key of Object.keys(headers)){
     if(key==='forwarded'||key==='x-real-ip'||key.startsWith('x-forwarded-')||key.startsWith('x-ssa-'))delete headers[key];
   }
   headers.host=url.host;
   headers['x-ssa-protocol']=scheme;
-  headers['x-ssa-client-ip']=typeof real==='string'&&isIP(real)?real:remoteAddress||'unknown';
+  headers['x-ssa-client-ip']=remoteAddress||'unknown';
   return true;
-}
-
-/** A remote proxy must match the actual TCP peer, never X-Forwarded-For.
- * @param {string|undefined} address
- * @param {string} trusted
- */
-export function trustedProxyPeer(address,trusted){
-  if(!trusted)return true; // Local-only published port; external access requires explicit allowlist.
-  return !!address && (address===trusted||address==='::ffff:'+trusted);
 }
