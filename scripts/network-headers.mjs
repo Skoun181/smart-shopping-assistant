@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
 
+/** @param {string} hostname */
 export function localHost(hostname) {
   const h=hostname.toLowerCase().replace(/^\[|\]$/g,'');
   if(h==='localhost')return true;
@@ -9,6 +10,7 @@ export function localHost(hostname) {
   }
   return isIP(h)===6&&(h==='::1'||/^f[cd][0-9a-f]{2}:/.test(h)||/^fe[89ab][0-9a-f]:/.test(h));
 }
+/** @param {import('node:http').IncomingHttpHeaders} headers @param {string | undefined} remoteAddress @param {boolean} [proxy] */
 export function prepareHeaders(headers,remoteAddress,proxy=false) {
   const scheme=proxy?headers['x-forwarded-proto']:'http';
   const real=proxy?headers['x-real-ip']:undefined;
