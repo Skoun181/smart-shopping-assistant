@@ -27,6 +27,12 @@ Die Übersicht zeigt offene Einkäufe. In der Einkaufsliste und bei den Vorräte
 
 <!-- Screenshots: Originalbilder der Beta 0.3.2 können unter docs/screenshots/ ergänzt werden. Die geänderte Versionsanzeige in 1.0.0 ist die einzige sichtbare Release-Anpassung. -->
 
+## Netzwerkzugriff – 1.0.1 Release Candidate
+
+Direkter Zugriff über `http://SERVER-IP:3000` und optional HTTPS über NGINX ohne manuelle Origin-Konfiguration. Bestehende `.env` bleibt erhalten; `ORIGIN` und `BIND_ADDRESS` werden in diesem Teststand bewusst nicht mehr verwendet. Der direkte IPv4-Port wird für das Heimnetz veröffentlicht, der vertrauenswürdige Proxy-Port 3001 nur an localhost. Firewall beachten; keine Router-Freigabe. Details und NGINX-Beispiel: [Netzwerk-Anleitung](docs/network-access.md) / [NGINX-Konfiguration](deploy/nginx-location.conf).
+
+Der folgende Installationsabschnitt beschreibt weiterhin den veröffentlichten Stand `v1.0.0`. Für den Test des neuen Netzwerkzugriffs den Feature-Branch `feature/automatic-network-access` statt des Tags auschecken und die Netzwerk-Anleitung beachten. Einzelne HTTPS-Sitzungen müssen neu angemeldet werden.
+
 ## Installation
 
 ### Voraussetzungen
