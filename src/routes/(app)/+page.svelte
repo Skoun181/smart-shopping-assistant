@@ -102,15 +102,15 @@
         {/each}<button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Produkt hinzufügen','Add product')}</button>
       </section>
     {:else if tab==='shopping'||tab==='pantry'}
-      <div class="heading section-head"><p class="subtle">{tab==='shopping'?tr('Gemeinsam einkaufen.','Shop together.'):tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><button class="primary" onclick={()=>openModal(tab)}>＋ {tr('Hinzufügen','Add item')}</button></div>
+      <div class="heading section-head"><p class="subtle">{tab==='shopping'?tr('Gemeinsam einkaufen.','Shop together.'):tr('Was ist noch zu Hause vorhanden?','What do we have at home?')}</p><button class="primary" onclick={()=>openModal(tab==='shopping'?'shopping':'pantry')}>＋ {tr('Hinzufügen','Add item')}</button></div>
       {#if (tab==='shopping'?shopping:pantry).length===0}<section class="panel empty">{tr('Noch keine Einträge. Leg direkt los!','Nothing here yet. Add something!')}</section>{/if}
       <section class="panel list">
         {#each (tab==='shopping'?shopping:pantry) as item(item.id)}
           <div class:done={!!item.checked&&tab==='shopping'} class="item">
             {#if tab==='shopping'}<input type="checkbox" checked={!!item.checked} aria-label={tr('Kaufstatus ändern','Change purchase status')} onchange={()=>updateItem(item,'shopping',{checked:!item.checked})}/>{:else}<span class="symbol">▤</span>{/if}
             <div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)} {item.note?' · '+item.note:''}</small></div>
-            <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,tab,{quantity:Number(raw)});}}>✎</button>
-            <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,tab)}>×</button>
+            <button class="small-button" title={tr('Menge bearbeiten','Edit quantity')} onclick={()=>{const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));if(raw!==null&&raw.trim()&&Number(raw)>0&&Number(raw)<=1000000)updateItem(item,tab==='shopping'?'shopping':'pantry',{quantity:Number(raw)});}}>✎</button>
+            <button class="small-button danger" title={tr('Entfernen','Delete')} onclick={()=>removeItem(item,tab==='shopping'?'shopping':'pantry')}>×</button>
           </div>
         {/each}
       </section>

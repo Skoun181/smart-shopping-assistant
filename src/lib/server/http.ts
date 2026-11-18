@@ -28,7 +28,7 @@ export const pantryBody = z.object({
 
 export function assertOrigin(event: RequestEvent): void {
   const actual = event.request.headers.get('origin');
-  if (!actual || actual !== event.url.origin) throw error(403,'Invalid origin');
+  if (!actual || actual !== (process.env.ORIGIN || event.url.origin)) throw error(403,'Invalid origin');
 }
 export async function parsed<T extends z.ZodType>(event: RequestEvent,schema: T): Promise<z.infer<T>> {
   const contentType = event.request.headers.get('content-type') ?? '';
