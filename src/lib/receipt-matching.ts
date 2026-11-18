@@ -8,7 +8,7 @@ const rules:Rule[]=[
   {pattern:/^kochschinken\b/i,name:'Schinken',category:'meat',variant:'Kochschinken'},
   {pattern:/^coke\s+vanilla\b/i,name:'Cola',category:'drinks',variant:'Vanilla'},
   {pattern:/^(?:coke|coca[\s-]*cola|cola)\s+(?:zero|zero sugar)\b/i,name:'Cola',category:'drinks',variant:'Zero'},
-  {pattern:/^cc\s+z\s+ew\b/i,name:'Cola',category:'drinks',variant:'Zero (Vorschlag)',uncertain:true},
+  {pattern:/^cc\s+z\s+ew\b/i,name:'Cola',category:'drinks',variant:'Zero',uncertain:true},
   {pattern:/^fanta\b/i,name:'Fanta',category:'drinks'},
   {pattern:/^sprite\b/i,name:'Sprite',category:'drinks'},
   {pattern:/^spaghetti[\s-]*gericht\b/i,name:'Spaghettigericht',category:'pantry'},
