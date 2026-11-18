@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install dependencies
-        run: npm install --no-fund
+        run: npm ci --no-fund
       - name: Check types and Svelte
         run: npm run check
       - name: Unit tests
@@ -38,8 +38,3 @@ jobs:
             sleep 1
           done
           node tests/smoke.mjs
-      - name: Emit lockfile snapshot for initial reproducible release
-        run: |
-          echo LOCKFILE_BEGIN_SSA_2026
-          cat package-lock.json
-          echo LOCKFILE_END_SSA_2026
