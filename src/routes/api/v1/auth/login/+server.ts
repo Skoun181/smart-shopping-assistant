@@ -11,6 +11,6 @@ export const POST: RequestHandler = async (event) => {
     return response({error:'Invalid password'},401);
   }
   clearFailures(ip);
-  newSession(event.cookies);
+  newSession(event.cookies,event.url.protocol==='https:');
   return response({ok:true});
 };

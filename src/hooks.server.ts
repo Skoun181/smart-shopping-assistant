@@ -5,7 +5,7 @@ import { assertOrigin } from '#lib/server/http.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
   const path = event.url.pathname;
-  event.locals.sessionTokenHash = getSession(event.cookies);
+  event.locals.sessionTokenHash = getSession(event.cookies,event.url.protocol==='https:');
   event.locals.authenticated = !!event.locals.sessionTokenHash;
   if (path.startsWith('/api/') && path !== '/api/v1/auth/login' && path !== '/api/v1/health' && !event.locals.authenticated) {
     throw error(401,'Login required');

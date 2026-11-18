@@ -1,27 +1,27 @@
-# Smart Shopping Assistant – Version 1.0.0 Stable
+# Smart Shopping Assistant – Version 1.0.1 Stable
 
-Erster stabiler Release des selbst gehosteten Einkaufs- und Vorratsassistenten.
-
-## Funktionen
-- Gemeinsame Einkaufslisten, Produktkacheln, Freitext, Varianten und Live-Aktualisierung.
-- Kuratierter Produktkatalog, eigene Produkte und frei zuordenbare Kategorien.
-- Einklappbare Vorratskategorien, Mengensteuerung und Verbrauch.
-- Lokaler Kassenbon-Import (Bild, PDF, TXT), regelbasierter Produktabgleich und kontrollierte Freigabe.
-- CSV-Import mit Vorlage und KI-Prompt; optionale lokale Ollama-Bild-KI.
-- Responsive Oberfläche, zwei Dark-Themes, Deutsch/Englisch und PWA-Grundlagen.
-- Docker Compose, SQLite, Passwortschutz, Backup-Skript und automatisierte Qualitätsprüfungen.
+## Neu
+- Direkter LAN-Zugriff über IP und Port 3000.
+- Optionaler NGINX Reverse Proxy (auch auf einer separaten VM) mit demselben Upstream-Port.
+- Automatische Origin- und Protokollerkennung, ohne Änderung der bestehenden .env.
+- HTTP-/HTTPS-spezifische Session-Cookies, unveränderte Passwort- und Same-Origin-Prüfungen.
+- Aktualisierte Netzwerk-Dokumentation und NGINX-Konfigurationsbeispiele.
+- Keine neue Datenbankmigration oder npm-Abhängigkeiten.
 
 ## Update
-Vor dem Wechsel ein SQLite-Backup anlegen und außerhalb der VM sichern. In der bestehenden Installation:
+Vorher ein konsistentes SQLite-Backup erstellen und außerhalb der VM sichern. Im bisherigen Projektordner:
+
 ```bash
 git fetch origin --tags
-git checkout v1.0.0
+git checkout v1.0.1
 sudo docker compose up -d --build
 sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
-Die bestehende .env und das Datenvolume beibehalten. Nicht docker compose down -v ausführen.
 
-## Hinweise
-Für vertrauliche Daten HTTPS oder einen verschlüsselten SSH-Tunnel verwenden. Die optionale Foto-KI benötigt einen separat eingerichteten lokalen Ollama-Dienst. Bon-Zuordnungen bleiben Vorschläge und müssen kontrolliert werden. Rezeptvorschläge, Angebote und vollständige Offline-Synchronisation sind noch nicht enthalten. Stable bezeichnet den ersten freigegebenen Funktionsstand, keine unabhängige Sicherheitszertifizierung.
+Bestehende .env und Datenvolume behalten. Alte experimentelle Port-3001-Overrides entfernen, sonstige lokale Einstellungen beibehalten. Health-Version: 1.0.1.
 
-Die ausführliche Anleitung steht im README.
+## Sicherheit und Grenzen
+Nur für vertrauenswürdige private Netze. Port 3000 per Netzwerkfirewall einschränken, keine Internet-Portfreigabe. Das vereinfachte Proxy-Modell akzeptiert X-Forwarded-Proto ohne Proxy-IP-Allowlist; NGINX muss Host und Scheme setzen. HTTP ist unverschlüsselt. Login-Limits beziehen sich auf den TCP-Peer (hinter NGINX gemeinsam). Für vertrauliche Daten HTTPS nutzen. Reale NGINX-/Browser-Tests auf der eigenen Installation bleiben erforderlich.
+
+[Netzwerk-Anleitung](docs/network-access.md)

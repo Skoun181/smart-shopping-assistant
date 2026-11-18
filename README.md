@@ -2,11 +2,11 @@
 
 **Dein Haushalt. Deine Einkaufsliste. Deine Daten.**
 
-![Version](https://img.shields.io/badge/version-1.0.0-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
+![Version](https://img.shields.io/badge/version-1.0.1-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
 
 Smart Shopping Assistant ist eine selbst gehostete, mobilfreundliche Web-App für gemeinsame Einkäufe und Vorräte. Die Anwendung läuft im eigenen Heimnetz, speichert Haushaltsdaten lokal in SQLite und benötigt für die Kernfunktionen keinen Cloud-Dienst.
 
-**Version 1.0.0 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
+**Version 1.0.1 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
 
 ## Funktionen
 
@@ -27,6 +27,12 @@ Die Übersicht zeigt offene Einkäufe. In der Einkaufsliste und bei den Vorräte
 
 <!-- Screenshots: Originalbilder der Beta 0.3.2 können unter docs/screenshots/ ergänzt werden. Die geänderte Versionsanzeige in 1.0.0 ist die einzige sichtbare Release-Anpassung. -->
 
+## Netzwerkzugriff – direkt oder über NGINX
+
+Direkter Zugriff über `http://SERVER-IP:3000` und optional über NGINX auf demselben Port. Keine zusätzlichen Proxy-Ports, keine IP-Freigabeliste, kein Compose-Override und keine Änderungen an der `.env` nötig. Alte `ORIGIN`- und `BIND_ADDRESS`-Werte werden ignoriert. NGINX setzt `Host` und `X-Forwarded-Proto`. Der Server akzeptiert den Protokoll-Header ohne Proxy-Allowlist; ausschließlich im vertrauenswürdigen Heimnetz betreiben, keine Router-Freigabe. Details: [Netzwerk-Anleitung](docs/network-access.md) / [NGINX-Beispiel](deploy/nginx-remote.example.conf).
+
+Beide Zugangswege können gleichzeitig verwendet werden. Beispiel: Shopping-VM `192.168.0.150:3000`, NGINX-VM `192.168.0.66`, lokaler DNS-Eintrag `list.xc.local` auf die NGINX-IP. Einzelne Sitzungen müssen beim Wechsel der Adresse neu angemeldet werden.
+
 ## Installation
 
 ### Voraussetzungen
@@ -40,7 +46,7 @@ Die Übersicht zeigt offene Einkäufe. In der Einkaufsliste und bei den Vorräte
 ```bash
 git clone https://github.com/Skoun181/smart-shopping-assistant.git
 cd smart-shopping-assistant
-git checkout v1.0.0
+git checkout v1.0.1
 cp .env.example .env
 chmod 600 .env
 ```
@@ -58,12 +64,10 @@ Das Passwort wird unsichtbar abgefragt. Die ausgegebene Zeile `APP_PASSWORD_HASH
 Für den ersten lokalen Test:
 
 ```dotenv
-ORIGIN=http://localhost:3000
-BIND_ADDRESS=127.0.0.1
 APP_PORT=3000
 ```
 
-Die `ORIGIN` muss genau der im Browser verwendeten Adresse entsprechen. Für einen sicheren Dauerbetrieb einen lokalen HTTPS-Reverse-Proxy verwenden und die HTTPS-Origin eintragen; die App-Portbindung kann auf `127.0.0.1` bleiben. Keine Router-Portfreigabe einrichten. Unverschlüsseltes LAN-HTTP ist nur für vorübergehende Tests geeignet.
+Die App lauscht standardmäßig auf allen IPv4-Schnittstellen der VM und verwendet die im Browser aufgerufene Adresse automatisch. Port 3000 per Proxmox-/Netzwerkfirewall auf vertrauenswürdige Geräte beschränken. HTTPS bei Bedarf über NGINX einrichten. Keine Router-Portfreigabe; HTTP ist unverschlüsselt.
 
 ### 3. Starten
 
@@ -74,7 +78,7 @@ sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-Die Health-API meldet `1.0.0`. Auf dem Server `http://localhost:3000` öffnen oder vom PC über SSH:
+Die Health-API meldet `1.0.1`. Im Heimnetz direkt `http://SERVER-IP:3000` öffnen. Alternativ vom PC über einen SSH-Tunnel zugreifen:
 
 ```bash
 ssh -N -L 3000:127.0.0.1:3000 BENUTZER@SERVER-IP
@@ -112,24 +116,24 @@ PANTRY_VISION_MODEL=DEIN_LOKALES_BILDMODELL
 
 `sudo docker compose up -d --force-recreate` lädt die Konfiguration. Ohne diese optionale Einrichtung funktionieren Kassenbon-OCR und CSV weiterhin.
 
-## Update von Beta 0.3.2
+## Update auf Version 1.0.1
 
 Im bestehenden Projektordner zunächst ein Backup erstellen; keine Neuinstallation oder Volume-Löschung erforderlich:
 
 ```bash
-sudo docker compose exec shopping node scripts/backup.mjs /data/backups/pre-v1.db
-sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/pre-v1.db "$HOME/pre-v1.db"
-sudo chown "$USER:$USER" "$HOME/pre-v1.db"
-chmod 600 "$HOME/pre-v1.db"
+sudo docker compose exec shopping node scripts/backup.mjs /data/backups/pre-v101.db
+sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/pre-v101.db "$HOME/pre-v101.db"
+sudo chown "$USER:$USER" "$HOME/pre-v101.db"
+chmod 600 "$HOME/pre-v101.db"
 git status --short
 git fetch origin --tags
-git checkout v1.0.0
+git checkout v1.0.1
 sudo docker compose up -d --build
 sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-Vor dem Checkout lokale Änderungen prüfen und das Backup zusätzlich außerhalb der VM sichern. `.env`, das gemeinsame Passwort und das bestehende Datenvolume bleiben erhalten. **Niemals `docker compose down -v` für ein gewöhnliches Update ausführen.**
+Falls ein Compose-Override aus einem früheren 1.0.1-Teststand Port 3001 veröffentlicht, diese alte Konfiguration entfernen; andere lokale Einstellungen beibehalten. Bestehende ORIGIN/BIND_ADDRESS-Werte müssen nicht geändert werden. Vor dem Checkout lokale Änderungen prüfen und das Backup zusätzlich außerhalb der VM sichern. `.env`, das gemeinsame Passwort und das bestehende Datenvolume bleiben erhalten. **Niemals `docker compose down -v` für ein gewöhnliches Update ausführen.**
 
 ## Sicherheit & Datenschutz
 
@@ -171,7 +175,7 @@ SvelteKit (Node.js) ── REST / SSE
 
 ## Grenzen und Ausblick
 
-Version 1.0.0 ist der erste stabile Funktionsstand für den privaten Heimnetz-Einsatz. Die automatische Bon-Erkennung ist heuristisch und kann Fehler machen. Die Bild-KI ist optional und hängt von Modell und Hardware ab. Keine vollständige Offline-Bearbeitung; die PWA-Kompatibilität ist browserabhängig. Rezeptvorschläge, Supermarktangebote und selbstlernende Bon-Zuordnungen sind noch nicht Bestandteil dieses Releases. Browser-, Backup-/Restore- und reale KI-Tests bleiben bei der eigenen Installation wichtig.
+Version 1.0.1 ist ein stabiler Funktionsstand für den privaten Heimnetz-Einsatz. Die automatische Bon-Erkennung ist heuristisch und kann Fehler machen. Die Bild-KI ist optional und hängt von Modell und Hardware ab. Keine vollständige Offline-Bearbeitung; die PWA-Kompatibilität ist browserabhängig. Rezeptvorschläge, Supermarktangebote und selbstlernende Bon-Zuordnungen sind noch nicht Bestandteil dieses Releases. Browser-, Backup-/Restore- und reale KI-Tests bleiben bei der eigenen Installation wichtig.
 
 ## Entwicklung
 

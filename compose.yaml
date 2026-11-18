@@ -1,7 +1,7 @@
 services:
   shopping:
     build: .
-    image: smart-shopping-assistant:1.0.0
+    image: smart-shopping-assistant:1.0.1
     restart: unless-stopped
     init: true
     env_file:
@@ -11,7 +11,8 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+      # Direct LAN and reverse proxy access; restrict via host/network firewall.
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
     volumes:
       - shopping_data:/data
     security_opt:

@@ -13,3 +13,7 @@ data/
 *.db-*
 *.log
 .DS_Store
+
+# Local deployment overrides
+compose.override.yaml
+compose.remote-proxy.yaml
