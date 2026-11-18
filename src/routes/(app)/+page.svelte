@@ -15,6 +15,7 @@
   let query='',chosen='',chosenVariant='',categoryFilter='',qty=1,unit='pcs',note='';
   let customName='',customEnglish='',customCategory='produce',customVariant='';
   let manualMode=false,manualName='',manualCategory='hygiene',manualVariant='';
+  let manualCreateCategory=false,manualNewCategoryName='';
   let modal:'shopping'|'pantry'|'custom'|null=null;
   let loading=true,error='',working=false;
   let live:EventSource|undefined;
@@ -69,7 +70,7 @@
   }
   function openModal(v:'shopping'|'pantry'|'custom'){
     modal=v;chosen='';chosenVariant='';qty=1;unit='pcs';query='';note='';error='';
-    manualMode=false;manualName='';manualVariant='';
+    manualMode=false;manualName='';manualVariant='';manualCreateCategory=false;manualNewCategoryName='';
     manualCategory=categories.find((c)=>c.id==='hygiene')?.id||categories[0]?.id||'';
   }
   function openFreeText(prefill=''){
@@ -90,6 +91,16 @@
   }
   async function moveProduct(id:string,categoryId:string){
     await request('/catalog/'+id,{method:'PATCH',body:JSON.stringify({categoryId})});await refresh('catalog');
+  }
+  async function createCategoryInDialog(){
+    if(!manualNewCategoryName.trim() || working)return;
+    working=true;error='';
+    try{
+      const created=await request<{id:string}>('/categories',{method:'POST',body:JSON.stringify({nameDe:manualNewCategoryName.trim()})});
+      await refresh('catalog');
+      manualCategory=created.id;manualCreateCategory=false;manualNewCategoryName='';
+    }catch(e){error=String(e);}
+    finally{working=false;}
   }
   async function addItem(){
     if((!manualMode&&!chosen)||(manualMode&&!manualName.trim())||!Number.isFinite(Number(qty))||Number(qty)<=0)return;
@@ -250,9 +261,19 @@
               <label>{tr('Variante (optional)','Variant (optional)')}
                 <input maxlength="80" placeholder={tr('z. B. normal, 16 Stück','e.g. regular, 16 pieces')} bind:value={manualVariant}/>
               </label>
-              <button type="button" class="text-link" onclick={()=>{modal=null;tab='categories';}}>
-                {tr('Kategorie fehlt? Neue Kategorie erstellen','Missing a category? Create one')}
+              <button type="button" class="text-link" onclick={()=>manualCreateCategory=!manualCreateCategory}>
+                {tr('Kategorie fehlt? Hier neu erstellen','Missing a category? Create one here')}
               </button>
+              {#if manualCreateCategory}
+                <div class="inline-category">
+                  <label>{tr('Neue Kategorie (Deutsch)','New category (German)')}
+                    <input maxlength="70" bind:value={manualNewCategoryName} placeholder={tr('z. B. Tierbedarf','e.g. Pet supplies')}/>
+                  </label>
+                  <button type="button" class="secondary" disabled={working||!manualNewCategoryName.trim()} onclick={createCategoryInDialog}>
+                    {tr('Kategorie anlegen','Create category')}
+                  </button>
+                </div>
+              {/if}
             {:else}
               <label>{tr('Produkt suchen','Search product')}
                 <input placeholder={tr('z. B. Milch','e.g. Milk')} bind:value={query}/>
@@ -308,6 +329,8 @@
   .filters{display:flex;gap:12px;margin-top:24px}.filters input{flex:1;min-width:0}.filters select{max-width:220px}.filters input,.filters select,.dialog input,.dialog select{background:#171c23;border:1px solid #46515e;border-radius:10px;padding:12px;color:white;min-height:44px;width:100%}
   .list{margin-top:18px}.preferences{max-width:620px}.preferences .subtle{font-size:13px}.choices{display:flex;gap:12px;flex-wrap:wrap}.choices button{border:1px solid #45515e;background:#252d36;border-radius:12px;color:#e4ebf2;padding:13px 18px}.choices button.chosen{border-color:var(--accent);color:var(--accent)}.secondary{background:transparent;color:#e4ebf2;border:1px solid #526070;border-radius:12px;padding:12px 18px}.error{background:#482932;border:1px solid #8e4b5f;color:#ffd6dc;padding:13px;border-radius:12px;margin-top:22px;display:flex;justify-content:space-between}.error button{border:0;background:none;color:inherit}
   .mobile-nav{display:none}.backdrop{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:20;padding:16px}.dialog{width:min(100%,520px);max-height:90vh;overflow-y:auto;background:#222a34;border:1px solid #48535f;border-radius:22px;padding:24px}.dialog form{display:grid;gap:16px;margin-top:16px}.dialog label{display:grid;gap:7px;font-size:13px;color:#b7c4d2}.dialog .qty-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dialog input:focus,.dialog select:focus{outline:2px solid var(--accent)}
+  .inline-category{display:grid;grid-template-columns:1fr auto;align-items:end;gap:8px;padding:12px;border:1px solid #536373;border-radius:12px;background:#1d2933}
+  .inline-category .secondary{min-height:44px}
   .mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .mode-toggle button{padding:11px 8px;border-radius:10px;border:1px solid #526171;background:#303a46;color:#cbd6e1;font-size:12px}
   .mode-toggle button.chosen{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
