@@ -52,8 +52,35 @@ res=await raw('/pantry',jsonOptions('POST',{productId:custom.id,quantity:-5,unit
 assert.equal(res.status,400,'invalid quantity blocked');
 res=await raw('/pantry/'+pantryId,{method:'DELETE',headers:{Origin:BASE,Cookie:cookie}});
 assert.equal(res.status,200,'delete pantry item');
+// Bulk selection should add many products in one atomic operation.
+const selection = catalog.products.filter((p)=>p.name_de==='Milch'||p.name_de==='Äpfel');
+assert.equal(selection.length,2,'gallery seeded product availability');
+res=await raw('/shopping/bulk',jsonOptions('POST',{items:selection.map((p)=>({
+  productId:p.id,quantity:1,unitId:p.name_de==='Milch'?'l':'pcs',note:''
+}))},cookie));
+assert.equal(res.status,201,'bulk add');
+let stats=await res.json();
+assert.equal(stats.added,2,'bulk adds both records');
+res=await raw('/shopping/bulk',jsonOptions('POST',{items:selection.map((p)=>({
+  productId:p.id,quantity:1,unitId:p.name_de==='Milch'?'l':'pcs',note:''
+}))},cookie));
+assert.equal(res.status,201,'bulk repeats');
+stats=await res.json();
+assert.equal(stats.merged,2,'bulk merges duplicates');
+res=await raw('/shopping',opts);
+let groupedItems=(await res.json()).items;
+assert.equal(groupedItems.find((i)=>i.product_id===milk.id&&i.unit_id==='l').quantity,2,'merged milk has two litres');
+// If one product is invalid, NO valid product should have been written.
+const before=groupedItems.length;
+res=await raw('/shopping/bulk',jsonOptions('POST',{items:[
+  {productId:selection[0].id,quantity:5,unitId:'pcs',note:'should-not-save'},
+  {productId:'00000000-0000-4000-8000-000000000000',quantity:1,unitId:'pcs',note:''}
+]},cookie));
+assert.equal(res.status,400,'invalid bulk product blocked');
+res=await raw('/shopping',opts);
+assert.equal((await res.json()).items.length,before,'invalid batch not partially written');
 res=await raw('/auth/logout',{method:'POST',headers:{Origin:BASE,Cookie:cookie}});
 assert.equal(res.status,200,'logout');
 res=await raw('/shopping',opts);
 assert.equal(res.status,401,'logout revoked session');
-console.log('SMOKE_TEST_OK login, CSRF, sessions, catalog, variants, shopping, duplicates, concurrency, pantry, validation');
+console.log('SMOKE_TEST_OK login, CSRF, sessions, catalog, variants, shopping, bulk atomics, duplicates, concurrency, pantry, validation');
