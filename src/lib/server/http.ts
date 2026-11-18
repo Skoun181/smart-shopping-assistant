@@ -30,11 +30,11 @@ export function assertOrigin(event: RequestEvent): void {
   const actual = event.request.headers.get('origin');
   if (!actual || actual !== (process.env.ORIGIN || event.url.origin)) throw error(403,'Invalid origin');
 }
-export async function parsed<T extends z.ZodType>(event: RequestEvent,schema: T): Promise<z.infer<T>> {
+export async function parsed<T extends z.ZodType>(event: RequestEvent,schema: T,maxLength=8192): Promise<z.infer<T>> {
   const contentType = event.request.headers.get('content-type') ?? '';
   if (!contentType.toLowerCase().startsWith('application/json')) throw error(415,'JSON required');
   const raw = await event.request.text();
-  if (raw.length > 8192) throw error(413,'Request too large');
+  if (raw.length > maxLength) throw error(413,'Request too large');
   try { return schema.parse(JSON.parse(raw)); }
   catch (cause) {
     if (cause instanceof SyntaxError || cause instanceof ZodError) throw error(400,'Invalid input');
