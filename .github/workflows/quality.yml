@@ -31,13 +31,14 @@ jobs:
         run: |
           set -euo pipefail
           HASH="$(node tests/ci-password.mjs)"
-          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -e ORIGIN=http://127.0.0.1:3333 -e APP_PASSWORD_HASH="$HASH" smart-shopping-ci
+          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -p 127.0.0.1:3334:3001 -e ORIGIN=http://legacy.invalid:9999 -e APP_PASSWORD_HASH="$HASH" smart-shopping-ci
           trap 'docker logs shopping-smoke || true; docker rm -f shopping-smoke || true' EXIT
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
             sleep 1
           done
           node tests/smoke.mjs
+          node tests/network-smoke.mjs
 
   release-v1:
     # Publish the explicitly approved first stable version only after main passes quality.
