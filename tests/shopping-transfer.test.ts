@@ -20,7 +20,7 @@ function fixture(){
   return {db,stock,item,patch};
 }
 describe('shopping to pantry',()=>{
-  test('one pack plus one pack, stale and repeated check cannot add twice; undo and recheck',()=>{
+  test('one pack plus one pack, stale and repeated check cannot add twice; reopen and purchase more',()=>{
     const {db,stock,item,patch}=fixture();
     try{
       expect(patch({checked:true,expectedVersion:1})).toEqual({ok:true,pantryChanged:true});
@@ -29,27 +29,27 @@ describe('shopping to pantry',()=>{
       expect(patch({checked:true,expectedVersion:2})).toEqual({ok:true,pantryChanged:false});
       expect(stock()).toEqual([{id:'stock',quantity:2,version:2}]);
       expect(patch({quantity:3,expectedVersion:3})).toMatchObject({ok:false,status:409});
-      expect(patch({checked:false,expectedVersion:3})).toEqual({ok:true,pantryChanged:true});
-      expect(stock()).toEqual([{id:'stock',quantity:1,version:3}]);
+      expect(patch({checked:false,expectedVersion:3})).toEqual({ok:true,pantryChanged:false});
+      expect(stock()).toEqual([{id:'stock',quantity:2,version:2}]);
       expect(patch({checked:true,quantity:2,expectedVersion:4})).toEqual({ok:true,pantryChanged:true});
-      expect(stock()).toEqual([{id:'stock',quantity:3,version:4}]);
+      expect(stock()).toEqual([{id:'stock',quantity:4,version:3}]);
       expect(item()).toEqual({checked:1,quantity:2,version:5});
       db.prepare("DELETE FROM shopping_items WHERE id='buy'").run();
-      expect(stock()).toEqual([{id:'stock',quantity:3,version:4}]);
+      expect(stock()).toEqual([{id:'stock',quantity:4,version:3}]);
     }finally{db.close();}
   });
-  test('different variant, unit and location do not merge; missing stock creates new row; undo removes only new row',()=>{
+  test('different variant, unit and location do not merge; missing stock creates new row; reopening leaves it untouched',()=>{
     const {db,stock,patch}=fixture();
     try{
       db.exec("UPDATE pantry_items SET variant_id='spicy' WHERE id='stock'; INSERT INTO pantry_items(id,location_id,product_id,name_snapshot,quantity,unit_id,created_at,updated_at) VALUES('pieces','home','salami','Salami',1,'pcs',1,1),('cellar','other','salami','Salami',1,'pack',1,1)");
       expect(patch({checked:true,expectedVersion:1})).toMatchObject({ok:true});
       expect(stock()).toHaveLength(4);
-      expect(patch({checked:false,expectedVersion:2})).toMatchObject({ok:true});
-      expect(stock()).toHaveLength(3);
-      expect(stock()).toEqual([{id:'cellar',quantity:1,version:1},{id:'pieces',quantity:1,version:1},{id:'stock',quantity:1,version:1}]);
+      const purchased=stock();
+      expect(patch({checked:false,expectedVersion:2})).toEqual({ok:true,pantryChanged:false});
+      expect(stock()).toEqual(purchased);
     }finally{db.close();}
   });
-  test('consumed stock blocks undo and overflow leaves shopping and pantry unchanged',()=>{
+  test('consumed stock does not block reopening; overflow leaves both unchanged',()=>{
     const {db,stock,item,patch}=fixture();
     try{
       db.exec("UPDATE pantry_items SET quantity=1000000 WHERE id='stock'");
@@ -59,9 +59,12 @@ describe('shopping to pantry',()=>{
       db.exec("UPDATE pantry_items SET quantity=1 WHERE id='stock'");
       expect(patch({checked:true,expectedVersion:1})).toMatchObject({ok:true});
       db.exec("DELETE FROM pantry_items WHERE id='stock'");
-      expect(patch({checked:false,expectedVersion:2})).toMatchObject({ok:false,status:409});
-      expect(item()).toEqual({checked:1,quantity:1,version:2});
+      expect(patch({checked:false,expectedVersion:2})).toEqual({ok:true,pantryChanged:false});
+      expect(item()).toEqual({checked:0,quantity:1,version:3});
       expect(stock()).toEqual([]);
+      expect(patch({checked:true,expectedVersion:3})).toEqual({ok:true,pantryChanged:true});
+      expect(stock()).toHaveLength(1);
+      expect(stock()[0]).toMatchObject({quantity:1,version:1});
     }finally{db.close();}
   });
   test('previously checked rows are not retroactively imported or subtracted',()=>{
