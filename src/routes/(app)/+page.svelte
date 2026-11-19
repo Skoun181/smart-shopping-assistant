@@ -198,7 +198,7 @@
       <section class="panel"><div class="heading"><h2>{tr('Nächster Einkauf','Next shopping trip')}</h2><button class="link" onclick={()=>tab='shopping'}>{tr('Alle anzeigen','View all')} →</button></div>
         {#if !outstanding}<p class="empty">{tr('Alles erledigt! Füge dein erstes Produkt hinzu.','All done! Add your first item.')}</p>{/if}
         {#each shopping.filter(i=>!i.checked).slice(0,6) as item(item.id)}
-          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={()=>updateItem(item,'shopping',{checked:true})}/><span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
+          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={async(e)=>{const input=e.currentTarget;input.disabled=true;try{if(!await updateItem(item,'shopping',{checked:true}))input.checked=!!shopping.find(i=>i.id===item.id)?.checked;}finally{input.disabled=false;}}}/><span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
         {/each}<button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Produkt hinzufügen','Add product')}</button>
       </section>
     {:else if tab==='shopping'}
