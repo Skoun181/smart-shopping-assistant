@@ -2,160 +2,69 @@
 
 **Dein Haushalt. Deine Einkaufsliste. Deine Daten.**
 
-![Version](https://img.shields.io/badge/version-1.0.6-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
+![Stable](https://img.shields.io/badge/stable-1.0.6-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
 
-Smart Shopping Assistant ist eine selbst gehostete, mobilfreundliche Web-App für gemeinsame Einkäufe und Vorräte. Die Anwendung läuft im eigenen Heimnetz, speichert Haushaltsdaten lokal in SQLite und benötigt für die Kernfunktionen keinen Cloud-Dienst.
+Eine selbst gehostete, mobilfreundliche Web-App für gemeinsame Einkäufe und Vorräte. Alle Haushaltsdaten bleiben in der lokalen SQLite-Datenbank. Für die Kernfunktionen werden keine Cloud-Dienste benötigt.
 
-**Version 1.0.6 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
+**Aktuelle Stable-Version: 1.0.6**
 
-## Neu in Version 1.0.6
-
-Version 1.0.6 bündelt die getesteten Verbesserungen für Einkauf und Vorräte. Die vorherigen Release-Tags bleiben erhalten.
-
-- Vorräte: Verbrauch der letzten Einheit und Entfernen ohne Bestätigungsdialog.
-- Einkaufsliste: Plus/Minus wie bei Vorräten, genaue Menge per Tipp. Die Einkaufsmenge muss positiv bleiben; zum Entfernen gibt es die separate Schaltfläche.
-- Abhaken bucht die gekaufte Menge automatisch in die Vorräte (Standort Zuhause). Gleiche Produkt-ID, Variante und Einheit werden zusammengeführt; unterschiedliche Einheiten werden nicht umgerechnet.
-- Beim Entfernen des Hakens bleibt der bisherige Vorrat unverändert: Der Artikel wird erneut zum Einkauf vorgemerkt. Beim nächsten Abhaken wird die angegebene Menge zusätzlich gebucht. Abgehakte Artikel können nach dem Enthaken in ihrer Menge geändert werden. Auch das Löschen eines Einkaufslisteneintrags lässt den Vorrat unberührt.
-- Bereits vor dem Update abgehakte Artikel werden nicht rückwirkend importiert. Nachträglicher Kassenbon-Import desselben Einkaufs kann weiterhin Doppelbestände verursachen; nur fehlende Artikel importieren.
-- Die neue SQLite-Migration wird automatisch beim Start angewendet. Vor dem Update ein externes Backup sichern.
-
-## Branches
-
-`stable/smart-shopping-assistant` enthält freigegebene Versionen; `develop/smart-shopping-assistant-next` dient der Entwicklung. Für reproduzierbare Installationen einen Release-Tag verwenden.
+[GitHub](https://github.com/Skoun181/smart-shopping-assistant) · [Releases](https://github.com/Skoun181/smart-shopping-assistant/releases) · [Docker Hub](https://hub.docker.com/r/skoun181/smart-shopping-assistant/tags) · [GitHub Container Registry](https://github.com/Skoun181/smart-shopping-assistant/pkgs/container/smart-shopping-assistant)
 
 ## Funktionen
 
-| Bereich | Funktionen |
-| --- | --- |
-| 🏠 Übersicht | Offene Einkäufe, erledigte Artikel und Vorräte auf einen Blick |
-| 🛒 Einkaufsliste | Kategorien, Produkt-Emojis, Mehrfachauswahl per Kacheln, Freitext, Plus/Minus-Mengensteuerung, Varianten, automatische Vorratsbuchung, Live-Aktualisierung |
-| 📦 Vorräte | Einklappbare Kategorien, Plus/Minus-Verbrauch, genaue Mengen, eigene Einträge und kontrollierte Importe |
-| 🗂️ Katalog | Über 300 kuratierte Alltagsprodukte, eigene Produkte, Suche, veränderbare und selbst erstellte Kategorien |
-| 🧾 Kassenbon | Lokale Texterkennung für Fotos, PDFs und TXT, regelbasierter Katalogabgleich, bearbeitbare Vorschau |
-| 📷 Foto-KI | Optionale lokale Ollama-Anbindung für Einkaufs- und Kühlschrankbilder |
-| 📄 CSV | Vorlage und KI-Prompt für externe Auswertungen, bearbeitbare Importvorschau |
-| 🎨 Oberfläche | Dark Mint und Dark Violet, Deutsch und Englisch, responsive Darstellung, PWA-Grundlagen |
-
-## Screenshots & Bedienung
-
-Die Übersicht zeigt offene Einkäufe. In der Einkaufsliste und bei den Vorräten lassen sich Kategorien einzeln öffnen und schließen. Die Vorratsansicht bietet direkte Mengensteuerung; der Importdialog führt von der Dateiauswahl über eine Vorschau bis zur ausdrücklichen Freigabe. Im Kategorien-Tab lassen sich Produktzuordnungen für den gesamten Haushalt ändern.
-
-<!-- Screenshots: Originalbilder der Beta 0.3.2 können unter docs/screenshots/ ergänzt werden. Die geänderte Versionsanzeige in 1.0.0 ist die einzige sichtbare Release-Anpassung. -->
-
-## Netzwerkzugriff – direkt oder über NGINX
-
-Direkter Zugriff über `http://SERVER-IP:3000` und optional über NGINX auf demselben Port. Keine zusätzlichen Proxy-Ports, keine IP-Freigabeliste, kein Compose-Override und keine Änderungen an der `.env` nötig. Alte `ORIGIN`- und `BIND_ADDRESS`-Werte werden ignoriert. NGINX setzt `Host` und `X-Forwarded-Proto`. Der Server akzeptiert den Protokoll-Header ohne Proxy-Allowlist; ausschließlich im vertrauenswürdigen Heimnetz betreiben, keine Router-Freigabe. Details: [Netzwerk-Anleitung](docs/network-access.md) / [NGINX-Beispiel](deploy/nginx-remote.example.conf).
-
-Beide Zugangswege können gleichzeitig verwendet werden. Beispiel: Shopping-VM `192.168.0.150:3000`, NGINX-VM `192.168.0.66`, lokaler DNS-Eintrag `list.xc.local` auf die NGINX-IP. Einzelne Sitzungen müssen beim Wechsel der Adresse neu angemeldet werden.
-
-## Installation mit Docker Hub
-
-Alternativ zur GitHub Container Registry steht die Docker-Hub-Bereitstellung unter [skoun181/smart-shopping-assistant](https://hub.docker.com/r/skoun181/smart-shopping-assistant) zur Verfügung, sobald der erste Image-Upload erfolgreich abgeschlossen ist. Unterstützt wird Linux AMD64. Die feste Version `1.0.6` ist der Standard; `latest` kann bewusst über `SSA_IMAGE_TAG` gewählt werden.
-
-```bash
-mkdir -p ~/apps/smart-shopping-assistant
-cd ~/apps/smart-shopping-assistant
-curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.dockerhub.yaml -o compose.dockerhub.yaml
-sudo docker pull skoun181/smart-shopping-assistant:1.0.6
-```
-
-Bei einer Neuinstallation den Passwort-Hash lokal generieren und in `.env` speichern:
-
-```bash
-sudo docker run --rm -it --entrypoint node skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
-umask 077
-nano .env
-```
-
-Die komplette generierte `APP_PASSWORD_HASH='...'`-Zeile übernehmen. Eine vorhandene Installation behält ihre .env und ihren Compose-Projektnamen sowie das vorhandene Volume; vor dem Wechsel ein externes Backup sichern. Immer dieselbe Compose-Datei und denselben Projektnamen für spätere Updates verwenden.
-
-```bash
-sudo docker compose -f compose.dockerhub.yaml pull
-sudo docker compose -f compose.dockerhub.yaml up -d
-```
-
-### Veröffentlichung (Repository-Verwaltung)
-
-Ein öffentliches Docker-Hub-Repository `skoun181/smart-shopping-assistant` und ein Docker-Hub-Access-Token mit Read/Write (ohne Delete) werden benötigt. Token ausschließlich als Repository Actions Secret `DOCKERHUB_TOKEN` speichern; keine Zugangsdaten im Quellcode. Die GitHub Actions für Stable veröffentlichen nach erfolgreicher Qualitätsprüfung und vorhandenem Release-Tag. Der separate Workflow **Publish Smart Shopping Assistant to Docker Hub** kann auf dem Stable-Branch auch manuell gestartet werden, etwa für den ersten Upload oder eine Wiederholung. Kein Develop-Image wird veröffentlicht.
-
-## Installation mit fertigem Docker-Image (GHCR)
-
-Für Linux x86-64 (amd64), beispielsweise eine Debian-VM auf Proxmox. Kein Git-Clone, Node.js oder lokaler Image-Build nötig. Das Container-Image wird nach erfolgreichen Stable-Tests aus dem freigegebenen Release-Tag gebaut. Der Versions-Tag `1.0.6` ist die empfohlene feste Version; `latest` bezeichnet den zuletzt veröffentlichten Stable-Release. GitHub-Packages-Sichtbarkeit ist unabhängig vom öffentlichen Quellcode: Das Paket muss öffentlich sein, damit Pulls ohne Login funktionieren.
-
-### Neue Installation
-
-```bash
-mkdir -p ~/apps/smart-shopping-assistant
-cd ~/apps/smart-shopping-assistant
-curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.registry.yaml -o compose.yaml
-sudo docker pull ghcr.io/skoun181/smart-shopping-assistant:1.0.6
-sudo docker run --rm -it --entrypoint node ghcr.io/skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
-umask 077
-nano .env
-```
-
-Die ausgegebene Zeile `APP_PASSWORD_HASH='...'` vollständig in die lokale .env kopieren (einfache Anführungszeichen um den Hash behalten). Optional `APP_PORT=3000` und `SSA_IMAGE_TAG=1.0.6` ergänzen. Keine echten Zugangsdaten in GitHub speichern.
-
-```bash
-sudo docker compose pull
-sudo docker compose up -d
-sudo docker compose ps
-curl -fsS http://127.0.0.1:3000/api/v1/health
-```
-
-### Bestehende Installation vom lokalen Build auf GHCR umstellen
-
-Im **bisherigen Projektordner** bleiben .env, Compose-Projektname, Dienstname `shopping` und Volume `shopping_data` unverändert. Vorher ein konsistentes Backup erstellen und außerhalb der VM sichern. Falls bisher ein eigener Projektname per `-p` oder `COMPOSE_PROJECT_NAME` verwendet wurde, denselben weiterhin verwenden.
-
-```bash
-cd ~/apps/smart-shopping-assistant
-curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.registry.yaml -o compose.registry.yaml
-sudo docker compose -f compose.registry.yaml pull
-sudo docker compose -f compose.registry.yaml up -d
-sudo docker compose -f compose.registry.yaml ps
-```
-
-Künftig immer dieselbe Compose-Datei und denselben Projektnamen verwenden. Bei einem Update zuerst Backup, dann den gewünschten veröffentlichten Versions-Tag als `SSA_IMAGE_TAG` in .env setzen und `pull` sowie `up -d` ausführen. Alternativ kann `latest` bewusst gewählt werden; es gibt keine automatischen Updates ohne Pull. Nie `down -v` verwenden. Die lokale Build-Installation unten bleibt weiterhin unterstützt.
-
-[Container-Paket auf GitHub](https://github.com/Skoun181/smart-shopping-assistant/pkgs/container/smart-shopping-assistant)
+- Gemeinsame Einkaufsliste mit Kategorien, Produkt-Emojis, Mehrfachauswahl, Freitext und Plus-/Minus-Mengensteuerung.
+- Vorräte mit einklappbaren Kategorien, genauen Mengen und direktem Verbrauch ohne Bestätigungsdialog.
+- Automatische Vorratsbuchung beim Abhaken. Enthaken eröffnet einen neuen Einkaufsbedarf, ohne Vorräte abzuziehen.
+- Über 300 kuratierte Alltagsprodukte, eigene Produkte, Varianten und Kategorien.
+- Live-Synchronisierung zwischen Geräten, Deutsch/Englisch, Dark Mint/Dark Violet und PWA-Grundlagen.
+- Lokale Kassenbon-Erkennung (OCR), PDF/TXT, CSV-Import und optionale lokale Ollama-Bild-KI.
 
 ## Installation
 
 ### Voraussetzungen
 
-- Linux-Server mit Docker Engine und Docker Compose Plugin; auf Proxmox vorzugsweise eine Debian-VM.
-- Git und Zugriff auf dieses Repository (bei privatem Repository ist eine GitHub-Anmeldung erforderlich).
-- Für den sicheren Zugriff von mehreren Geräten: vertrauenswürdiges HTTPS im Heimnetz; alternativ für Tests ein SSH-Tunnel.
-
-### 1. Release herunterladen
+- Linux-Server oder Debian-VM auf Proxmox; fertige Images unterstützen Linux AMD64 (x86-64).
+- Docker Engine und für die Compose-Varianten das Docker Compose Plugin: [offizielle Docker-Installationsanleitung](https://docs.docker.com/engine/install/).
+- Git nur für Variante A; curl und ein Texteditor für die folgenden Beispiele.
+- Ein freier Host-Port (Standard: 3000).
 
 ```bash
-git clone https://github.com/Skoun181/smart-shopping-assistant.git
+docker --version
+docker compose version
+```
+
+**Nur eine der folgenden Varianten installieren.** Alle verwenden dieselbe Anwendung und ein persistentes Datenvolume. Die Beispiele setzen Docker-Zugriff über sudo voraus; bei einer entsprechend eingerichteten Docker-Umgebung kann sudo entfallen.
+
+| Variante | Empfehlung |
+| --- | --- |
+| A – Git Clone | Quellcode selbst bauen |
+| B – Docker Compose | Empfohlen: fertiges Docker-Hub-Image, ohne Git-Clone |
+| C – Docker Pull / Run | Ohne Compose, manuelle Container-Verwaltung |
+
+### A – Installation über Git Clone
+
+Quellcode der festen Stable-Version herunterladen:
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+git clone --branch v1.0.6 https://github.com/Skoun181/smart-shopping-assistant.git
 cd smart-shopping-assistant
-git checkout v1.0.6
+umask 077
 cp .env.example .env
 chmod 600 .env
 ```
 
-### 2. Gemeinsames Passwort konfigurieren
+Falls der Projektordner bereits vorhanden ist, stattdessen die Update-Anleitung verwenden. Gemeinsames Passwort (mindestens 12 Zeichen) lokal generieren:
 
 ```bash
 sudo docker run --rm -it --network none \
   -v "$PWD/scripts:/work:ro" -w /work \
   node:24-alpine node hash-password.mjs
+nano .env
 ```
 
-Das Passwort wird unsichtbar abgefragt. Die ausgegebene Zeile `APP_PASSWORD_HASH='scrypt$...'` vollständig in `.env` übernehmen. Die einfachen Anführungszeichen sind wichtig, damit Docker Compose die Dollarzeichen nicht interpoliert. Keine echten Zugangsdaten in GitHub speichern.
-
-Für den ersten lokalen Test:
-
-```dotenv
-APP_PORT=3000
-```
-
-Die App lauscht standardmäßig auf allen IPv4-Schnittstellen der VM und verwendet die im Browser aufgerufene Adresse automatisch. Port 3000 per Proxmox-/Netzwerkfirewall auf vertrauenswürdige Geräte beschränken. HTTPS bei Bedarf über NGINX einrichten. Keine Router-Portfreigabe; HTTP ist unverschlüsselt.
-
-### 3. Starten
+Die ausgegebene komplette Zeile `APP_PASSWORD_HASH='scrypt$...'` ersetzt den Platzhalter in der .env. Einfache Anführungszeichen beibehalten. Optional `APP_PORT=3000` anpassen.
 
 ```bash
 sudo docker compose config --quiet
@@ -164,106 +73,253 @@ sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-Die Health-API meldet `1.0.6`. Im Heimnetz direkt `http://SERVER-IP:3000` öffnen. Alternativ vom PC über einen SSH-Tunnel zugreifen:
+### B – Installation über Docker Compose (empfohlen)
+
+Kein Git-Clone, kein Node.js und kein lokaler Image-Build nötig.
 
 ```bash
-ssh -N -L 3000:127.0.0.1:3000 BENUTZER@SERVER-IP
+mkdir -p ~/apps/smart-shopping-assistant
+cd ~/apps/smart-shopping-assistant
 ```
 
-Anschließend auf dem PC `http://localhost:3000` öffnen und mit dem gemeinsamen Passwort anmelden.
+Datei `compose.yaml` erstellen:
+
+```yaml
+services:
+  shopping:
+    image: docker.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
+    volumes:
+      - shopping_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_data:
+```
+
+Das Image enthält bereits einen Healthcheck. Alternativ statt manueller Erstellung die [fertige Compose-Datei](https://github.com/Skoun181/smart-shopping-assistant/blob/stable/smart-shopping-assistant/compose.dockerhub.yaml) herunterladen (nur bei Neuinstallation unter diesem Namen speichern):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.dockerhub.yaml -o compose.yaml
+```
+
+Image herunterladen und Passwort generieren:
+
+```bash
+sudo docker pull skoun181/smart-shopping-assistant:1.0.6
+sudo docker run --rm -it --network none --entrypoint node \
+  skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env
+```
+
+Inhalt der .env (Platzhalter durch die tatsächlich ausgegebene Hash-Zeile ersetzen):
+
+```dotenv
+APP_PASSWORD_HASH='DEIN_GENERIERTER_SCRYPT_HASH'
+APP_PORT=3000
+SSA_IMAGE_TAG=1.0.6
+```
+
+Die einfachen Anführungszeichen um den Hash beibehalten, damit Compose die Dollarzeichen nicht interpoliert. Das gewählte Klartextpasswort wird nur zur Anmeldung verwendet.
+
+```bash
+chmod 600 .env
+sudo docker compose config --quiet
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+**Alternative GHCR:** Im Compose-Beispiel nur die Image-Adresse durch `ghcr.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}` ersetzen und auch beim Passwort-Generator diese Registry verwenden. Das Paket muss öffentlich sein oder ein Registry-Login ist nötig.
+
+### C – Installation über Docker Pull und Docker Run (ohne Compose)
+
+Ein separates Beispiel mit manuell verwaltetem Container und eigenem persistentem Volume.
+
+```bash
+mkdir -p ~/apps/smart-shopping-assistant-run
+cd ~/apps/smart-shopping-assistant-run
+sudo docker pull skoun181/smart-shopping-assistant:1.0.6
+sudo docker run --rm -it --network none --entrypoint node \
+  skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env.run
+```
+
+In .env.run den ausgegebenen Hash eintragen, diesmal **ohne** die umgebenden einfachen Anführungszeichen. Docker Run verarbeitet env-files anders als Compose; die Dollarzeichen bleiben wörtlich erhalten.
+
+```dotenv
+APP_PASSWORD_HASH=DEIN_GENERIERTER_SCRYPT_HASH
+```
+
+```bash
+chmod 600 .env.run
+sudo docker volume create ssa_run_data
+sudo docker run -d \
+  --name smart-shopping-assistant \
+  --restart unless-stopped --init \
+  --env-file .env.run \
+  -p 0.0.0.0:3000:3000 \
+  -v ssa_run_data:/data \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL --read-only \
+  --tmpfs /tmp:rw,nosuid,noexec,size=64m \
+  skoun181/smart-shopping-assistant:1.0.6
+
+sudo docker ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+### Erste Anmeldung
+
+Im Browser `http://SERVER-IP:3000` öffnen und mit dem zuvor gewählten Passwort anmelden. Bei einem anderen Host-Port die URL und den Healthcheck entsprechend anpassen. Erwartete Health-Antwort:
+
+```json
+{"ok":true,"version":"1.0.6"}
+```
+
+## Host-Port ändern
+
+Der interne Container-Port bleibt immer **3000**. Nur der von Docker am Host veröffentlichte Port wird geändert. Beispiel: Host-Port **8080**.
+
+**Docker Compose:** In .env ändern:
+
+```dotenv
+APP_PORT=8080
+```
+
+```bash
+sudo docker compose up -d
+curl -fsS http://127.0.0.1:8080/api/v1/health
+```
+
+Bei einer abweichenden Compose-Datei immer denselben `-f DATEINAME`-Parameter verwenden.
+
+**Docker Run:** Port-Mappings eines bestehenden Containers lassen sich nicht nachträglich ändern. Container nach einem Backup stoppen und entfernen, dann mit demselben Run-Befehl und unverändertem Volume neu erstellen. Nur die Option `-p 0.0.0.0:8080:3000` anstelle von `-p 0.0.0.0:3000:3000` verwenden.
+
+Neuer Browser-Zugriff: `http://SERVER-IP:8080`. Bei einem NGINX-Reverse-Proxy auch den Upstream-Port und gegebenenfalls die Firewall anpassen.
+
+**Wichtig:** Ein veröffentlichter Docker-Port ist nicht als Internetfreigabe gedacht. Die Bindung 0.0.0.0 gilt für alle IPv4-Schnittstellen des Hosts. Zugriff per Docker-kompatibler Netzwerkfirewall auf vertrauenswürdige Geräte beschränken; keine Router-Portweiterleitung. Nur auf dem Host erreichbar: alternativ die Port-Zuordnung auf 127.0.0.1 begrenzen.
+
+## Updates
+
+Vor jedem Update ein externes Datenbank-Backup erstellen (siehe unten). Projektordner, Volume und Passwort beibehalten.
+
+**Git Clone (A):**
+
+```bash
+git status --short
+git fetch origin --tags
+git checkout v1.0.6
+sudo docker compose up -d --build
+```
+
+Für spätere Updates v1.0.6 durch den gewünschten veröffentlichten Release-Tag ersetzen. Lokale Änderungen zuerst sichern.
+
+**Docker Compose (B):** In .env den gewünschten festen `SSA_IMAGE_TAG` einstellen, dann:
+
+```bash
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
+```
+
+`SSA_IMAGE_TAG=latest` folgt dem zuletzt publizierten Stable-Image beim nächsten Pull; feste Versionen sind besser reproduzierbar.
+
+**Docker Run (C):** Neues Image zuerst pullen, Backup erstellen, dann:
+
+```bash
+sudo docker stop smart-shopping-assistant
+sudo docker rm smart-shopping-assistant
+```
+
+Den vollständigen Run-Befehl aus Variante C mit dem neuen Image-Tag, derselben .env.run, demselben Port und demselben Volume erneut ausführen.
+
+**Niemals `docker compose down -v` oder das Datenvolume löschen**, wenn die Haushaltsdaten erhalten bleiben sollen.
+
+### Bestehende Git-Installation auf Docker Hub umstellen
+
+Im bisherigen Projektordner (nicht in einem neuen Ordner) zuerst Datenbank und .env sichern. Compose-Projektname, Dienstname `shopping` und Volume `shopping_data` unverändert beibehalten; bei früherem `-p` bzw. COMPOSE_PROJECT_NAME denselben Wert verwenden.
+
+```bash
+cd ~/apps/smart-shopping-assistant
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.dockerhub.yaml -o compose.dockerhub.yaml
+sudo docker compose -f compose.dockerhub.yaml pull
+sudo docker compose -f compose.dockerhub.yaml up -d
+sudo docker compose -f compose.dockerhub.yaml ps
+```
+
+Ab dann für Updates und Verwaltung stets diese Compose-Datei verwenden. Kein neuer Passwort-Hash nötig. Nur falls bisher abweichende lokale Compose-Overrides notwendig waren, deren Einstellungen bewusst übernehmen.
+
+## Backup & Wartung
+
+Die SQLite-Datenbank liegt im Container unter `/data/shopping.db`. Bei Compose:
+
+```bash
+sudo docker compose exec shopping node scripts/backup.mjs /data/backups/backup.db
+sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/backup.db "$HOME/ssa-backup.db"
+sudo chown "$(id -u):$(id -g)" "$HOME/ssa-backup.db"
+chmod 600 "$HOME/ssa-backup.db"
+```
+
+Bei Docker Run die ersten beiden Befehle durch folgende ersetzen:
+
+```bash
+sudo docker exec smart-shopping-assistant node scripts/backup.mjs /data/backups/backup.db
+sudo docker cp smart-shopping-assistant:/data/backups/backup.db "$HOME/ssa-backup.db"
+```
+
+Besitz und Rechte wie oben setzen. Backup sowie .env bzw. .env.run getrennt und geschützt außerhalb der VM sichern. Für Restore die App stoppen, bisherigen DB-Stand inklusive WAL/SHM sichern und eine konsistente Backup-Kopie mit korrekten Dateirechten wiederherstellen. Restore zuerst auf einer Testinstanz erproben.
+
+## Netzwerk & Sicherheit
+
+- Direkter LAN-Zugriff und NGINX-Reverse-Proxy funktionieren gleichzeitig über den Host-Port. NGINX muss Host und X-Forwarded-Proto korrekt setzen; SSE-Buffering deaktivieren, Upload-Limit 6 MiB. [Netzwerk-Anleitung](https://github.com/Skoun181/smart-shopping-assistant/blob/stable/smart-shopping-assistant/docs/network-access.md).
+- HTTP ist unverschlüsselt. Für vertrauliche Daten HTTPS im privaten Netz nutzen; das vereinfachte Proxy-Modell vertraut X-Forwarded-Proto ohne Proxy-IP-Allowlist. Nicht direkt im Internet betreiben.
+- Scrypt-Passwort-Hash, serverseitige Sitzungen, HttpOnly-Cookies, Login-Limits, Origin-Prüfung, Eingabevalidierung und parametrisierte SQL-Anfragen.
+- Container ohne Root, schreibgeschütztes Root-Dateisystem, reduzierte Capabilities. Haushaltsdaten liegen lokal, nicht in der Registry. Passwort, Hash, Datenbank und private Bons niemals committen.
+- Ein erfolgreicher automatischer Audit ersetzt keine unabhängige Sicherheitsprüfung.
 
 ## Vorräte importieren
 
-Unter **Vorräte → Scannen & importieren** einen Kassenbon, ein Foto oder CSV auswählen. Die App erstellt einen Entwurf. Namen, Mengen, Einheiten, Varianten und Kategorien kontrollieren, nicht gewünschte Zeilen abwählen und den Import ausdrücklich bestätigen. Der Import ergänzt den Bestand und ersetzt ihn nicht. Erneut gescannte Bons können Duplikate verursachen.
+Unter **Vorräte → Scannen & importieren** einen Bon, ein Foto oder CSV auswählen. Vorschau prüfen und Import ausdrücklich bestätigen. Der Import ergänzt den Bestand.
 
-- **Kassenbon:** JPG, PNG, PDF oder TXT bis 5 MiB; PDFs bis drei Seiten. Tesseract und Poppler verarbeiten die Dateien lokal. Abkürzungen werden anhand von Regeln und Katalogeinträgen interpretiert. Unklare Mengen und Produktzuordnungen kontrollieren.
-- **Kühlschrank / Einkauf:** JPG oder PNG; benötigt einen separat eingerichteten lokalen Ollama-Dienst mit bildfähigem Modell. Ohne diesen Dienst ist der Foto-KI-Modus deaktiviert.
-- **KI / CSV:** CSV-Vorlage und Prompt stehen in der App bereit. Externe KI-Auswertungen werden nur auf eigene Initiative verwendet. Persönliche Kunden- und Zahlungsdaten vorher entfernen.
-
-### CSV-Beispiel
+- Bons: JPG, PNG, PDF oder TXT bis 5 MiB, PDF maximal drei Seiten; lokale OCR mit Tesseract und Poppler.
+- Fotos von Einkäufen/Kühlschrank: optional lokaler Ollama-Dienst mit bildfähigem Modell; ohne Dienst deaktiviert.
+- CSV: UTF-8, maximal 100 KB/200 Produktzeilen. Einheiten pcs, pack, g, kg, ml, l. Dezimalpunkt oder Dezimalkomma möglich.
 
 ```csv
 produkt;menge;einheit;kategorie;variante
 H-Milch;2;l;Milchprodukte & Eier;
 Äpfel;5;pcs;Obst & Gemüse;
-Binden;1;pack;Körperpflege;
 ```
 
-UTF-8, maximal 100 KB und 200 Produktzeilen. Unterstützte Einheiten: `pcs`, `pack`, `g`, `kg`, `ml`, `l`. Unbekannte Mengen leer lassen und in der Vorschau ergänzen. Dezimalpunkt oder Dezimalkomma möglich; bei Komma als CSV-Trennzeichen müssen Dezimalkommas in Anführungszeichen stehen.
+Optionale lokale Bild-KI: PANTRY_VISION_URL (private IPv4-Adresse und Port 11434) sowie PANTRY_VISION_MODEL in der lokalen Umgebung setzen. Ollama ohne Cloud-Funktionen betreiben und Zugriff per Firewall beschränken. Compose-Container danach neu erstellen.
 
-### Optionale lokale Bild-KI
+**Keine Doppelbuchung:** Bereits abgehakte Einkäufe nicht zusätzlich vollständig per Kassenbon importieren. Vor 1.0.6 abgehakte Artikel werden nicht rückwirkend eingebucht. OCR und KI-Vorschläge sind nicht fehlerfrei; Mengen kontrollieren.
 
-Auf einem separaten Heimnetz-Rechner Ollama mit einem bildfähigen, lokal installierten Modell betreiben. Cloud-Funktionen deaktivieren (`OLLAMA_NO_CLOUD=1`); Port 11434 per Firewall ausschließlich für die Shopping-VM freigeben. In `.env` die tatsächliche private IPv4-Adresse und den installierten Modellnamen setzen:
+## Entwicklung & Veröffentlichung
 
-```dotenv
-PANTRY_VISION_URL=http://192.168.178.60:11434/
-PANTRY_VISION_MODEL=DEIN_LOKALES_BILDMODELL
-```
+SvelteKit, Svelte, TypeScript, Node.js 24, better-sqlite3, REST, SSE, Docker Compose, Tesseract/Poppler und Vitest.
 
-`sudo docker compose up -d --force-recreate` lädt die Konfiguration. Ohne diese optionale Einrichtung funktionieren Kassenbon-OCR und CSV weiterhin.
-
-## Update auf Version 1.0.6
-
-Im bestehenden Projektordner zunächst ein Backup erstellen; keine Neuinstallation oder Volume-Löschung erforderlich:
-
-```bash
-sudo docker compose exec shopping node scripts/backup.mjs /data/backups/pre-v101.db
-sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/pre-v101.db "$HOME/pre-v101.db"
-sudo chown "$USER:$USER" "$HOME/pre-v101.db"
-chmod 600 "$HOME/pre-v101.db"
-git status --short
-git fetch origin --tags
-git checkout v1.0.6
-sudo docker compose up -d --build
-sudo docker compose ps
-curl -fsS http://127.0.0.1:3000/api/v1/health
-```
-
-Falls ein Compose-Override aus einem früheren 1.0.1-Teststand Port 3001 veröffentlicht, diese alte Konfiguration entfernen; andere lokale Einstellungen beibehalten. Bestehende ORIGIN/BIND_ADDRESS-Werte müssen nicht geändert werden. Vor dem Checkout lokale Änderungen prüfen und das Backup zusätzlich außerhalb der VM sichern. `.env`, das gemeinsame Passwort und das bestehende Datenvolume bleiben erhalten. **Niemals `docker compose down -v` für ein gewöhnliches Update ausführen.**
-
-## Sicherheit & Datenschutz
-
-- Gemeinsames Passwort als Scrypt-Hash, serverseitige Sitzungen, HTTP-only-Cookies und Login-Rate-Limit.
-- Origin-Prüfung bei Schreibzugriffen, Zod-Eingabevalidierung und parametrisierte SQL-Anfragen.
-- Container ohne Root, schreibgeschütztes Root-Dateisystem, reduzierte Linux-Capabilities.
-- SQLite-Datenbank lokal; Importdateien werden nur temporär verarbeitet. Keine automatischen Cloud-KI-Aufrufe.
-- Bestätigte Importe werden transaktional gespeichert; Versionsprüfungen schützen Vorratsänderungen vor veralteten Ansichten.
-- npm-Lockfile und `npm ci` für reproduzierbare Paketinstallationen; Dependabot und automatisierte Sicherheitsprüfungen.
-
-Für den sicheren Dauerbetrieb HTTPS, regelmäßige System- und Paketupdates und eine auf das Heimnetz begrenzte Firewall einsetzen. Ein erfolgreicher Audit ersetzt keine unabhängige Sicherheitsprüfung. Für vertrauliche Bons kein unverschlüsseltes HTTP verwenden.
-
-## Backup & Wartung
-
-Die SQLite-Datenbank liegt im Docker-Volume `shopping_data` unter `/data/shopping.db`. Ein konsistentes Backup kann bei laufender Anwendung erzeugt werden:
-
-```bash
-sudo docker compose exec shopping node scripts/backup.mjs /data/backups/backup.db
-sudo docker cp "$(sudo docker compose ps -q shopping)":/data/backups/backup.db "$HOME/backup.db"
-sudo chown "$USER:$USER" "$HOME/backup.db"
-chmod 600 "$HOME/backup.db"
-```
-
-Backup zusätzlich auf einem anderen Gerät sichern. Für eine Wiederherstellung die App stoppen, den bisherigen Datenbankstand einschließlich möglicher WAL-/SHM-Dateien sichern, eine konsistente Backup-Kopie mit korrekten Dateirechten als `shopping.db` wiederherstellen und anschließend starten. Restore zuerst auf einer Testinstanz erproben.
-
-## Technischer Aufbau
-
-SvelteKit / Svelte / TypeScript · Node.js 24 · SQLite / better-sqlite3 · REST API · Server-Sent Events · Docker Compose · Tesseract / Poppler · Vitest / GitHub Actions.
-
-```text
-Browser / PWA
-     │
-     ▼
-SvelteKit (Node.js) ── REST / SSE
-     ├── SQLite (persistentes Volume)
-     ├── lokale OCR / PDF-Auswertung
-     └── optionale lokale Ollama-Anbindung
-```
-
-## Grenzen und Ausblick
-
-Version 1.0.6 ist ein stabiler Funktionsstand für den privaten Heimnetz-Einsatz. Die automatische Bon-Erkennung ist heuristisch und kann Fehler machen. Die Bild-KI ist optional und hängt von Modell und Hardware ab. Keine vollständige Offline-Bearbeitung; die PWA-Kompatibilität ist browserabhängig. Rezeptvorschläge, Supermarktangebote und selbstlernende Bon-Zuordnungen sind noch nicht Bestandteil dieses Releases. Browser-, Backup-/Restore- und reale KI-Tests bleiben bei der eigenen Installation wichtig.
-
-## Entwicklung
+- `stable/smart-shopping-assistant`: freigegebene Versionen.
+- `develop/smart-shopping-assistant-next`: laufende Entwicklung.
+- GitHub Actions prüft Typen, Tests, Build, Produktionsabhängigkeiten, Compose und APIs. Docker Hub und GHCR werden aus freigegebenen Release-Tags veröffentlicht; keine Develop-Images als Stable.
 
 ```bash
 npm ci
@@ -272,11 +328,13 @@ npm test
 npm run build
 ```
 
-Änderungen über Feature-Branches und Pull Requests einreichen. GitHub Actions prüft Typen, Tests, Build, Produktionsabhängigkeiten, Docker und API-Smoke-Tests.
+Für Docker-Hub-Veröffentlichungen ist das Repository-Secret DOCKERHUB_TOKEN mit Read/Write-Rechten erforderlich. Nur Maintainer benötigen diesen Token, normale Nutzer nicht. Der manuelle Publish-Workflow kann einen vorhandenen Stable-Release erneut veröffentlichen.
 
-## Lizenz
+## Grenzen und Lizenz
 
-Privates Projekt. Eine öffentliche Open-Source-Lizenz wurde bislang nicht festgelegt.
+Keine vollständige Offline-Bearbeitung; PWA-Funktionen sind browserabhängig. KI-Modelle und Hardware beeinflussen Bilderkennung. Rezepte, Supermarktangebote und selbstlernende Bon-Zuordnungen sind nicht enthalten.
+
+Der Quellcode ist öffentlich einsehbar; eine öffentliche Open-Source-Lizenz wurde bisher nicht festgelegt.
 
 ---
 
