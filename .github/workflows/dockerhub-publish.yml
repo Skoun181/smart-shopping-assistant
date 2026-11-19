@@ -1,8 +1,10 @@
 name: Publish Smart Shopping Assistant to Docker Hub
 
 on:
-  push:
-    branches: ['stable/smart-shopping-assistant']
+  workflow_call:
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: true
   workflow_dispatch:
 
 permissions:
