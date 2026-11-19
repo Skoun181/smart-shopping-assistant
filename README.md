@@ -8,14 +8,14 @@ Smart Shopping Assistant ist eine selbst gehostete, mobilfreundliche Web-App fü
 
 **Version 1.0.1 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
 
-## Entwicklungsversion 1.1.0-dev.1
+## Entwicklungsversion 1.1.0-dev.2
 
 Der Develop-Branch enthält die nächste Version; der veröffentlichte Tag v1.0.1 bleibt unverändert.
 
 - Vorräte: Verbrauch der letzten Einheit und Entfernen ohne Bestätigungsdialog.
 - Einkaufsliste: Plus/Minus wie bei Vorräten, genaue Menge per Tipp. Die Einkaufsmenge muss positiv bleiben; zum Entfernen gibt es die separate Schaltfläche.
 - Abhaken bucht die gekaufte Menge automatisch in die Vorräte (Standort Zuhause). Gleiche Produkt-ID, Variante und Einheit werden zusammengeführt; unterschiedliche Einheiten werden nicht umgerechnet.
-- Beim Entfernen des Hakens wird die zugehörige Menge wieder abgezogen, wenn sie noch vorhanden ist. Ist sie bereits verbraucht, wird die Korrektur abgelehnt. Abgehakte Artikel können erst nach Entfernen des Hakens in ihrer Menge geändert werden. Das Löschen eines abgehakten Einkaufslisteneintrags lässt den Vorrat unberührt.
+- Beim Entfernen des Hakens bleibt der bisherige Vorrat unverändert: Der Artikel wird erneut zum Einkauf vorgemerkt. Beim nächsten Abhaken wird die angegebene Menge zusätzlich gebucht. Abgehakte Artikel können nach dem Enthaken in ihrer Menge geändert werden. Auch das Löschen eines Einkaufslisteneintrags lässt den Vorrat unberührt.
 - Bereits vor dem Update abgehakte Artikel werden nicht rückwirkend importiert. Nachträglicher Kassenbon-Import desselben Einkaufs kann weiterhin Doppelbestände verursachen; nur fehlende Artikel importieren.
 - Die neue SQLite-Migration wird automatisch beim Start angewendet. Vor dem Test ein externes Backup sichern und möglichst eine separate Testinstanz verwenden.
 
