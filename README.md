@@ -48,6 +48,36 @@ Direkter Zugriff über `http://SERVER-IP:3000` und optional über NGINX auf dems
 
 Beide Zugangswege können gleichzeitig verwendet werden. Beispiel: Shopping-VM `192.168.0.150:3000`, NGINX-VM `192.168.0.66`, lokaler DNS-Eintrag `list.xc.local` auf die NGINX-IP. Einzelne Sitzungen müssen beim Wechsel der Adresse neu angemeldet werden.
 
+## Installation mit Docker Hub
+
+Alternativ zur GitHub Container Registry steht die Docker-Hub-Bereitstellung unter [skoun181/smart-shopping-assistant](https://hub.docker.com/r/skoun181/smart-shopping-assistant) zur Verfügung, sobald der erste Image-Upload erfolgreich abgeschlossen ist. Unterstützt wird Linux AMD64. Die feste Version `1.0.6` ist der Standard; `latest` kann bewusst über `SSA_IMAGE_TAG` gewählt werden.
+
+```bash
+mkdir -p ~/apps/smart-shopping-assistant
+cd ~/apps/smart-shopping-assistant
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.dockerhub.yaml -o compose.dockerhub.yaml
+sudo docker pull skoun181/smart-shopping-assistant:1.0.6
+```
+
+Bei einer Neuinstallation den Passwort-Hash lokal generieren und in `.env` speichern:
+
+```bash
+sudo docker run --rm -it --entrypoint node skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env
+```
+
+Die komplette generierte `APP_PASSWORD_HASH='...'`-Zeile übernehmen. Eine vorhandene Installation behält ihre .env und ihren Compose-Projektnamen sowie das vorhandene Volume; vor dem Wechsel ein externes Backup sichern. Immer dieselbe Compose-Datei und denselben Projektnamen für spätere Updates verwenden.
+
+```bash
+sudo docker compose -f compose.dockerhub.yaml pull
+sudo docker compose -f compose.dockerhub.yaml up -d
+```
+
+### Veröffentlichung (Repository-Verwaltung)
+
+Ein öffentliches Docker-Hub-Repository `skoun181/smart-shopping-assistant` und ein Docker-Hub-Access-Token mit Read/Write (ohne Delete) werden benötigt. Token ausschließlich als Repository Actions Secret `DOCKERHUB_TOKEN` speichern; keine Zugangsdaten im Quellcode. Die GitHub Actions für Stable veröffentlichen nach erfolgreicher Qualitätsprüfung und vorhandenem Release-Tag. Der separate Workflow **Publish Smart Shopping Assistant to Docker Hub** kann auf dem Stable-Branch auch manuell gestartet werden, etwa für den ersten Upload oder eine Wiederholung. Kein Develop-Image wird veröffentlicht.
+
 ## Installation mit fertigem Docker-Image (GHCR)
 
 Für Linux x86-64 (amd64), beispielsweise eine Debian-VM auf Proxmox. Kein Git-Clone, Node.js oder lokaler Image-Build nötig. Das Container-Image wird nach erfolgreichen Stable-Tests aus dem freigegebenen Release-Tag gebaut. Der Versions-Tag `1.0.6` ist die empfohlene feste Version; `latest` bezeichnet den zuletzt veröffentlichten Stable-Release. GitHub-Packages-Sichtbarkeit ist unabhängig vom öffentlichen Quellcode: Das Paket muss öffentlich sein, damit Pulls ohne Login funktionieren.

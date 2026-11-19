@@ -32,6 +32,8 @@ jobs:
           trap 'rm -f .env' EXIT
           docker compose -f compose.registry.yaml config --quiet
           docker compose -f compose.registry.yaml config --images | grep -Fx 'ghcr.io/skoun181/smart-shopping-assistant:1.0.6'
+          docker compose -f compose.dockerhub.yaml config --quiet
+          docker compose -f compose.dockerhub.yaml config --images | grep -Fx 'docker.io/skoun181/smart-shopping-assistant:1.0.6'
       - name: Docker image
         run: docker build -t smart-shopping-ci .
       - name: Smoke test container and APIs
@@ -157,3 +159,12 @@ jobs:
           fi
           docker manifest inspect "$IMAGE:$VERSION" >/dev/null
           echo "Published $IMAGE:$VERSION"
+
+  publish-dockerhub:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    needs: [quality, release-v106]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/dockerhub-publish.yml
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
