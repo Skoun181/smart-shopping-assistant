@@ -124,9 +124,19 @@
       modal=null;await refresh();
     }catch(e){error=String(e);}finally{working=false;}
   }
-  async function updateItem(item:Item,scope:'shopping'|'pantry',body:Record<string,unknown>){
-    try{await request('/'+scope+'/'+item.id,{method:'PATCH',body:JSON.stringify({...body,expectedVersion:item.version})});await refresh(scope);}
-    catch(e){error=tr('Änderung fehlgeschlagen: ','Change failed: ')+String(e);await refresh(scope);}
+  async function updateItem(item:Item,scope:'shopping'|'pantry',body:Record<string,unknown>):Promise<boolean>{
+    try{
+      const result=await request<{pantryChanged?:boolean}>('/'+scope+'/'+item.id,{method:'PATCH',body:JSON.stringify({...body,expectedVersion:item.version})});
+      await refresh(scope);
+      if(result.pantryChanged)await refresh('pantry');
+      return true;
+    }catch(e){
+      await refresh(scope);
+      if(scope==='shopping')await refresh('pantry');
+      const msg=e instanceof Error?e.message:String(e);
+      error=tr('Änderung fehlgeschlagen: ','Change failed: ')+(msg==='Cannot undo purchase: transferred stock is no longer available'?tr('Der übertragene Vorrat ist nicht mehr verfügbar.','The transferred stock is no longer available.'):msg);
+      return false;
+    }
   }
   async function setPantryQuantity(item:Item,quantity:number){
     try{
@@ -134,7 +144,7 @@
     }finally{await refresh('pantry');}
   }
   async function removePantryEntry(item:Item){
-    if(confirm(tr('Vorratseintrag entfernen?','Remove pantry entry?')))await setPantryQuantity(item,0);
+    await setPantryQuantity(item,0);
   }
   async function removeItem(item:Item,scope:'shopping'|'pantry'){
     if(!confirm(tr('Eintrag entfernen?','Remove item?')))return;
@@ -193,7 +203,7 @@
       </section>
     {:else if tab==='shopping'}
       <div class="heading section-head shopping-controls">
-        <p class="subtle">{tr('Deine Produkte, übersichtlich nach Kategorien.','Your products, organized by category.')}</p>
+        <p class="subtle">{tr('Abgehakte Produkte werden automatisch zu deinen Vorräten hinzugefügt.','Checked items are automatically added to your pantry.')}</p>
         <div class="shopping-actions">
           <button class="secondary" onclick={()=>openStarter(false)}>▦ {tr('Mehrere auswählen','Select multiple')}</button>
           <button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Einzeln hinzufügen','Add one')}</button>
