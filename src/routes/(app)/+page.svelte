@@ -134,7 +134,7 @@
       await refresh(scope);
       if(scope==='shopping')await refresh('pantry');
       const msg=e instanceof Error?e.message:String(e);
-      error=tr('Änderung fehlgeschlagen: ','Change failed: ')+(msg==='Cannot undo purchase: transferred stock is no longer available'?tr('Der übertragene Vorrat ist nicht mehr verfügbar.','The transferred stock is no longer available.'):msg);
+      error=tr('Änderung fehlgeschlagen: ','Change failed: ')+msg;
       return false;
     }
   }
@@ -203,7 +203,7 @@
       </section>
     {:else if tab==='shopping'}
       <div class="heading section-head shopping-controls">
-        <p class="subtle">{tr('Abgehakte Produkte werden automatisch zu deinen Vorräten hinzugefügt.','Checked items are automatically added to your pantry.')}</p>
+        <p class="subtle">{tr('Abhaken fügt Vorräte hinzu. Erneut öffnen ändert den Bestand nicht.','Checking adds stock. Reopening leaves stock unchanged.')}</p>
         <div class="shopping-actions">
           <button class="secondary" onclick={()=>openStarter(false)}>▦ {tr('Mehrere auswählen','Select multiple')}</button>
           <button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Einzeln hinzufügen','Add one')}</button>
@@ -241,7 +241,7 @@
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Version 1.1.0-dev.1 · Nur für private Heimnetzwerke','Version 1.1.0-dev.1 · Private home networks only')}</p>
+        <p class="subtle">{tr('Version 1.1.0-dev.2 · Nur für private Heimnetzwerke','Version 1.1.0-dev.2 · Private home networks only')}</p>
       </section>
     {/if}
   </main>
