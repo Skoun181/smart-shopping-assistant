@@ -146,7 +146,7 @@ sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-**Alternative GHCR:** Im Compose-Beispiel nur die Image-Adresse durch `ghcr.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}` ersetzen und auch beim Passwort-Generator diese Registry verwenden. Das Paket muss öffentlich sein oder ein Registry-Login ist nötig.
+**Alternative GHCR:** Im Compose-Beispiel nur die Image-Adresse durch `ghcr.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}` ersetzen und dieselbe GHCR-Adresse auch bei docker pull und beim Passwort-Generator verwenden. Das Paket muss öffentlich sein oder ein Registry-Login ist nötig.
 
 ### C – Installation über Docker Pull und Docker Run (ohne Compose)
 
@@ -265,7 +265,7 @@ sudo docker compose -f compose.dockerhub.yaml up -d
 sudo docker compose -f compose.dockerhub.yaml ps
 ```
 
-Ab dann für Updates und Verwaltung stets diese Compose-Datei verwenden. Kein neuer Passwort-Hash nötig. Nur falls bisher abweichende lokale Compose-Overrides notwendig waren, deren Einstellungen bewusst übernehmen.
+Ab dann für Updates und Verwaltung stets diese Compose-Datei verwenden. Kein neuer Passwort-Hash nötig. Das bestehende Volume muss vor dem Wechsel mit dem bisherigen Compose-Projektnamen überprüft werden. Nur falls bisher abweichende lokale Compose-Overrides notwendig waren, deren Einstellungen bewusst übernehmen.
 
 ## Backup & Wartung
 
@@ -311,7 +311,7 @@ H-Milch;2;l;Milchprodukte & Eier;
 
 Optionale lokale Bild-KI: PANTRY_VISION_URL (private IPv4-Adresse und Port 11434) sowie PANTRY_VISION_MODEL in der lokalen Umgebung setzen. Ollama ohne Cloud-Funktionen betreiben und Zugriff per Firewall beschränken. Compose-Container danach neu erstellen.
 
-**Keine Doppelbuchung:** Bereits abgehakte Einkäufe nicht zusätzlich vollständig per Kassenbon importieren. Vor 1.0.6 abgehakte Artikel werden nicht rückwirkend eingebucht. OCR und KI-Vorschläge sind nicht fehlerfrei; Mengen kontrollieren.
+**Keine Doppelbuchung:** Bereits abgehakte Einkäufe nicht zusätzlich vollständig per Kassenbon importieren. Bereits vor Einführung der automatischen Vorratsbuchung abgehakte Artikel werden nicht rückwirkend eingebucht. OCR und KI-Vorschläge sind nicht fehlerfrei; Mengen kontrollieren.
 
 ## Entwicklung & Veröffentlichung
 
