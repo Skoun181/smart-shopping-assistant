@@ -40,6 +40,7 @@ docker compose version
 | A – Git Clone | Quellcode selbst bauen |
 | B – Docker Compose | Empfohlen: fertiges Docker-Hub-Image, ohne Git-Clone |
 | C – Docker Pull / Run | Ohne Compose, manuelle Container-Verwaltung |
+| D – Stack-Manager | Grafische Bereitstellung ohne separate .env-Datei |
 
 ### A – Installation über Git Clone
 
@@ -186,6 +187,72 @@ sudo docker ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
+### D – Installation über einen Stack-Manager (Dockhand, Portainer usw.)
+
+Für grafische Docker-Stack-Manager kann die Konfiguration direkt über **Environment variables** erfolgen. Die folgende Compose-Datei benötigt keine separate .env-Datei. Das Beispiel orientiert sich an einem Compose-Stack-Editor; Bezeichnungen können je nach Manager abweichen.
+
+**1. Passwort-Hash lokal erzeugen**
+
+Auf dem Docker-Host in einem interaktiven Terminal:
+
+```bash
+sudo docker run --rm -it --network none \
+  --entrypoint node skoun181/smart-shopping-assistant:1.0.6 \
+  scripts/hash-password.mjs
+```
+
+Ein Passwort mit mindestens 12 Zeichen wählen und sicher notieren. Der Generator gibt eine Zeile der Form `APP_PASSWORD_HASH='scrypt$32768$8$1$SALZ:DIGEST'` aus. SALZ und DIGEST sind Platzhalter, nicht ein verwendbarer Hash.
+
+**2. Neuen Stack erstellen**
+
+Stack-Namen wählen, z. B. `shopping`, und diese Compose-Datei in den Editor einfügen:
+
+```yaml
+services:
+  shopping:
+    image: docker.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_PASSWORD_HASH: "${APP_PASSWORD_HASH:?Password hash required}"
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
+    volumes:
+      - shopping_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_data:
+```
+
+**3. Environment Variables hinterlegen**
+
+| Name | Wert |
+| --- | --- |
+| APP_PASSWORD_HASH | Der vollständige zuvor generierte Hash, beginnend mit scrypt$ (Pflicht) |
+| APP_PORT | 3000 oder ein eigener freier Host-Port (optional) |
+| SSA_IMAGE_TAG | 1.0.6 oder ein anderer freigegebener Registry-Tag (optional) |
+
+In einer Key/Value-Maske nur den Hash selbst einfügen, ohne `APP_PASSWORD_HASH=` und ohne die umgebenden einfachen Anführungszeichen. Der Hash muss unverändert mit allen Dollarzeichen, Doppelpunkt und Base64-Zeichen ankommen. Wenn der Manager stattdessen einen **rohen Compose-.env-Text** verlangt, die vollständige ausgegebene Zeile inklusive einfacher Anführungszeichen verwenden. Nicht den Klartext des Passworts in APP_PASSWORD_HASH eintragen. Keine echten Hashes, Passwörter oder Screenshots mit Secrets öffentlich teilen.
+
+![Stack-Manager: Compose-Datei links und Environment Variables rechts, Passwort-Hash anonymisiert](https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/docs/screenshots/stack-manager.png)
+
+*Beispiel aus einem Stack-Editor. Sensible Werte wurden im Screenshot vollständig verdeckt. Der interne Port bleibt 3000; ein zusätzlicher Test-Stack auf demselben Host benötigt einen anderen freien Host-Port.*
+
+**4. Validieren, speichern und deployen**
+
+**Validate** (falls vorhanden), anschließend **Create & Start** / **Deploy** auswählen. Container-Status und Logs prüfen; danach im Browser `http://SERVER-IP:3000` bzw. den gewählten Host-Port öffnen und mit dem gewählten Klartextpasswort anmelden.
+
+Für Updates denselben Stack-Namen, Dienstnamen und dasselbe Volume behalten. Gewünschten SSA_IMAGE_TAG einstellen, neues Image pullen und den Stack neu deployen bzw. den Container neu erstellen. Bei Wechsel von einer bestehenden Installation das tatsächliche alte Volume zunächst überprüfen und explizit übernehmen, statt ein neues leeres Volume anzulegen. Einen Stack nicht gleichzeitig mit einem anderen Stack auf dasselbe SQLite-Datenvolume zugreifen lassen.
+
 ### Erste Anmeldung
 
 Im Browser `http://SERVER-IP:3000` öffnen und mit dem zuvor gewählten Passwort anmelden. Bei einem anderen Host-Port die URL und den Healthcheck entsprechend anpassen. Erwartete Health-Antwort:
@@ -211,11 +278,63 @@ curl -fsS http://127.0.0.1:8080/api/v1/health
 
 Bei einer abweichenden Compose-Datei immer denselben `-f DATEINAME`-Parameter verwenden.
 
+**Stack-Manager:** APP_PORT in Environment Variables auf 8080 (oder einen anderen freien Port) setzen, speichern und Stack neu deployen. Der interne PORT bleibt 3000. Bei bereits laufenden anderen Stacks müssen die Host-Ports unterschiedlich sein.
+
 **Docker Run:** Port-Mappings eines bestehenden Containers lassen sich nicht nachträglich ändern. Container nach einem Backup stoppen und entfernen, dann mit demselben Run-Befehl und unverändertem Volume neu erstellen. Nur die Option `-p 0.0.0.0:8080:3000` anstelle von `-p 0.0.0.0:3000:3000` verwenden.
 
 Neuer Browser-Zugriff: `http://SERVER-IP:8080`. Bei einem NGINX-Reverse-Proxy auch den Upstream-Port und gegebenenfalls die Firewall anpassen.
 
 **Wichtig:** Ein veröffentlichter Docker-Port ist nicht als Internetfreigabe gedacht. Die Bindung 0.0.0.0 gilt für alle IPv4-Schnittstellen des Hosts. Zugriff per Docker-kompatibler Netzwerkfirewall auf vertrauenswürdige Geräte beschränken; keine Router-Portweiterleitung. Nur auf dem Host erreichbar: alternativ die Port-Zuordnung auf 127.0.0.1 begrenzen.
+
+## Passwort ändern oder zurücksetzen
+
+Das gemeinsame Passwort wird über APP_PASSWORD_HASH in der Container-Umgebung konfiguriert. Es ist kein Passwort-Reset per E-Mail nötig, und die vorhandenen Vorräte müssen nicht gelöscht werden.
+
+1. Mit dem Generator aus der jeweiligen Installationsvariante einen neuen Hash erzeugen. Bei Verwendung des fertigen Images:
+
+```bash
+sudo docker run --rm -it --network none \
+  --entrypoint node skoun181/smart-shopping-assistant:1.0.6 \
+  scripts/hash-password.mjs
+```
+
+2. In der bestehenden Konfiguration nur APP_PASSWORD_HASH ersetzen:
+   - Compose-Datei + .env: die gesamte generierte Zeile mit einfachen Anführungszeichen übernehmen. Nicht die übrige .env überschreiben.
+   - Stack-Manager: rechts unter Environment Variables den Wert von APP_PASSWORD_HASH durch den neuen vollständigen Hash ersetzen. Bei einer Key/Value-Maske ohne die umgebenden Anführungszeichen; bei rohem Compose-.env-Text mit einfachen Anführungszeichen.
+   - Docker Run: in .env.run den eigentlichen Hash ohne umgebende Anführungszeichen hinterlegen.
+3. Container **neu erstellen**. Ein einfacher Restart übernimmt keine neuen Umgebungsvariablen.
+
+Für Git Clone und Docker Compose:
+
+```bash
+sudo docker compose up -d --force-recreate
+```
+
+Bei einer abweichenden Compose-Datei wie compose.dockerhub.yaml denselben -f-Parameter wie bei der Installation verwenden. Im Stack-Manager Änderungen speichern und **Redeploy / Recreate** ausführen. Bei Docker Run den alten Container stoppen und entfernen, dann mit dem vollständigen Run-Befehl aus Variante C, gleicher .env.run, gleichem Port und gleichem Volume neu starten.
+
+4. Danach im privaten Browserfenster mit dem neuen Klartextpasswort anmelden. Nach fünf fehlgeschlagenen Versuchen innerhalb des 15-Minuten-Fensters kann die Login-Sperre für 15 Minuten aktiv sein; weiteres Raten vermeiden. Der Passwortwechsel widerruft bereits bestehende Sitzungen nicht automatisch. Bestehende Geräte abmelden; serverseitige Sitzungen können bis zu 14 Tage gültig bleiben.
+
+**Auch bei vergessenen Passwörtern bleiben die Daten erhalten.** Nur wenn wirklich ein kompletter Neustart ohne Daten gewünscht ist, kann nach ausdrücklicher Prüfung das zu genau dieser Installation gehörende Volume gelöscht werden. Ein neuer Stack mit anderem Namen erzeugt üblicherweise ein eigenes Volume. Andere Container und Volumes nicht löschen; niemals alle Docker-Volumes bereinigen, um ein Passwort zurückzusetzen.
+
+## Häufige Fehler & Lösungen
+
+| Fehler | Lösung |
+| --- | --- |
+| env file .../.env not found | Bei CLI-Compose die .env neben der Compose-Datei erstellen. Im Stack-Manager Variante D ohne env_file nutzen und APP_PASSWORD_HASH über Environment Variables setzen. |
+| Password hash required / fehlender Hash | APP_PASSWORD_HASH unter dem exakten Variablennamen hinterlegen und den Stack neu deployen. |
+| APP_PASSWORD_HASH is missing or malformed / Anmeldung trotz richtigem Passwort unmöglich | Prüfen, ob der komplette generierte Hash unverändert übergeben wurde. Dollarzeichen dürfen nicht interpoliert, abgeschnitten oder doppelt escaped werden. Bei Bedarf neuen Hash erzeugen. |
+| HTTP 429 / Too many attempts | Login-Sperre abwarten (bis zu 15 Minuten ab Sperrbeginn). |
+| Port is already allocated | Freien Host-Port wählen (z. B. 8080) und Container neu erstellen; interner Port bleibt 3000. |
+| Anwendung zeigt keine bisherigen Vorräte | Compose-Projektnamen und eingebundenes Volume prüfen. Nicht vorschnell leere Volumes löschen oder alte Daten überschreiben. |
+
+Bei Verdacht auf einen beschädigten Hash kann auf dem Host dessen **Format** kontrolliert werden, ohne den geheimen Wert auszugeben:
+
+```bash
+sudo docker ps --format '{{.Names}}'
+sudo docker exec CONTAINERNAME node -e 'const p=(process.env.APP_PASSWORD_HASH||"").split("$");const q=(p[4]||"").split(":");console.log(p.length===5&&p[0]==="scrypt"&&p[1]==="32768"&&p[2]==="8"&&p[3]==="1"&&q.length===2&&Buffer.from(q[0],"base64").length===16&&Buffer.from(q[1],"base64").length===32?"Hash-Format OK":"Hash fehlt oder Format falsch")'
+```
+
+CONTAINERNAME durch den tatsächlichen Namen aus der ersten Ausgabe ersetzen. Ein korrektes Format beweist nicht, dass das eingegebene Passwort stimmt. Bei Problemen die Container-Logs prüfen, dabei niemals Secrets veröffentlichen.
 
 ## Updates
 
@@ -250,6 +369,8 @@ sudo docker rm smart-shopping-assistant
 ```
 
 Den vollständigen Run-Befehl aus Variante C mit dem neuen Image-Tag, derselben .env.run, demselben Port und demselben Volume erneut ausführen.
+
+**Stack-Manager (D):** Gewünschten SSA_IMAGE_TAG in Environment Variables einstellen, Image pullen und Stack neu deployen (Container neu erstellen). Stack-Name, Dienst und Volume beibehalten.
 
 **Niemals `docker compose down -v` oder das Datenvolume löschen**, wenn die Haushaltsdaten erhalten bleiben sollen.
 
