@@ -2,14 +2,17 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
   - package-ecosystem: docker
     directory: /
+    target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly

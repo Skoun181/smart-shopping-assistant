@@ -2,18 +2,33 @@
 
 **Dein Haushalt. Deine Einkaufsliste. Deine Daten.**
 
-![Version](https://img.shields.io/badge/version-1.0.1-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
+![Version](https://img.shields.io/badge/version-1.0.6-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
 
 Smart Shopping Assistant ist eine selbst gehostete, mobilfreundliche Web-App für gemeinsame Einkäufe und Vorräte. Die Anwendung läuft im eigenen Heimnetz, speichert Haushaltsdaten lokal in SQLite und benötigt für die Kernfunktionen keinen Cloud-Dienst.
 
-**Version 1.0.1 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
+**Version 1.0.6 Stable** · [Releases](../../releases) · [Automatische Prüfungen](../../actions)
+
+## Neu in Version 1.0.6
+
+Version 1.0.6 bündelt die getesteten Verbesserungen für Einkauf und Vorräte. Die vorherigen Release-Tags bleiben erhalten.
+
+- Vorräte: Verbrauch der letzten Einheit und Entfernen ohne Bestätigungsdialog.
+- Einkaufsliste: Plus/Minus wie bei Vorräten, genaue Menge per Tipp. Die Einkaufsmenge muss positiv bleiben; zum Entfernen gibt es die separate Schaltfläche.
+- Abhaken bucht die gekaufte Menge automatisch in die Vorräte (Standort Zuhause). Gleiche Produkt-ID, Variante und Einheit werden zusammengeführt; unterschiedliche Einheiten werden nicht umgerechnet.
+- Beim Entfernen des Hakens bleibt der bisherige Vorrat unverändert: Der Artikel wird erneut zum Einkauf vorgemerkt. Beim nächsten Abhaken wird die angegebene Menge zusätzlich gebucht. Abgehakte Artikel können nach dem Enthaken in ihrer Menge geändert werden. Auch das Löschen eines Einkaufslisteneintrags lässt den Vorrat unberührt.
+- Bereits vor dem Update abgehakte Artikel werden nicht rückwirkend importiert. Nachträglicher Kassenbon-Import desselben Einkaufs kann weiterhin Doppelbestände verursachen; nur fehlende Artikel importieren.
+- Die neue SQLite-Migration wird automatisch beim Start angewendet. Vor dem Update ein externes Backup sichern.
+
+## Branches
+
+`stable/smart-shopping-assistant` enthält freigegebene Versionen; `develop/smart-shopping-assistant-next` dient der Entwicklung. Für reproduzierbare Installationen einen Release-Tag verwenden.
 
 ## Funktionen
 
 | Bereich | Funktionen |
 | --- | --- |
 | 🏠 Übersicht | Offene Einkäufe, erledigte Artikel und Vorräte auf einen Blick |
-| 🛒 Einkaufsliste | Kategorien, Produkt-Emojis, Mehrfachauswahl per Kacheln, Freitext, Mengen und Varianten, Live-Aktualisierung |
+| 🛒 Einkaufsliste | Kategorien, Produkt-Emojis, Mehrfachauswahl per Kacheln, Freitext, Plus/Minus-Mengensteuerung, Varianten, automatische Vorratsbuchung, Live-Aktualisierung |
 | 📦 Vorräte | Einklappbare Kategorien, Plus/Minus-Verbrauch, genaue Mengen, eigene Einträge und kontrollierte Importe |
 | 🗂️ Katalog | Über 300 kuratierte Alltagsprodukte, eigene Produkte, Suche, veränderbare und selbst erstellte Kategorien |
 | 🧾 Kassenbon | Lokale Texterkennung für Fotos, PDFs und TXT, regelbasierter Katalogabgleich, bearbeitbare Vorschau |
@@ -46,7 +61,7 @@ Beide Zugangswege können gleichzeitig verwendet werden. Beispiel: Shopping-VM `
 ```bash
 git clone https://github.com/Skoun181/smart-shopping-assistant.git
 cd smart-shopping-assistant
-git checkout v1.0.1
+git checkout v1.0.6
 cp .env.example .env
 chmod 600 .env
 ```
@@ -78,7 +93,7 @@ sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-Die Health-API meldet `1.0.1`. Im Heimnetz direkt `http://SERVER-IP:3000` öffnen. Alternativ vom PC über einen SSH-Tunnel zugreifen:
+Die Health-API meldet `1.0.6`. Im Heimnetz direkt `http://SERVER-IP:3000` öffnen. Alternativ vom PC über einen SSH-Tunnel zugreifen:
 
 ```bash
 ssh -N -L 3000:127.0.0.1:3000 BENUTZER@SERVER-IP
@@ -116,7 +131,7 @@ PANTRY_VISION_MODEL=DEIN_LOKALES_BILDMODELL
 
 `sudo docker compose up -d --force-recreate` lädt die Konfiguration. Ohne diese optionale Einrichtung funktionieren Kassenbon-OCR und CSV weiterhin.
 
-## Update auf Version 1.0.1
+## Update auf Version 1.0.6
 
 Im bestehenden Projektordner zunächst ein Backup erstellen; keine Neuinstallation oder Volume-Löschung erforderlich:
 
@@ -127,7 +142,7 @@ sudo chown "$USER:$USER" "$HOME/pre-v101.db"
 chmod 600 "$HOME/pre-v101.db"
 git status --short
 git fetch origin --tags
-git checkout v1.0.1
+git checkout v1.0.6
 sudo docker compose up -d --build
 sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
@@ -175,7 +190,7 @@ SvelteKit (Node.js) ── REST / SSE
 
 ## Grenzen und Ausblick
 
-Version 1.0.1 ist ein stabiler Funktionsstand für den privaten Heimnetz-Einsatz. Die automatische Bon-Erkennung ist heuristisch und kann Fehler machen. Die Bild-KI ist optional und hängt von Modell und Hardware ab. Keine vollständige Offline-Bearbeitung; die PWA-Kompatibilität ist browserabhängig. Rezeptvorschläge, Supermarktangebote und selbstlernende Bon-Zuordnungen sind noch nicht Bestandteil dieses Releases. Browser-, Backup-/Restore- und reale KI-Tests bleiben bei der eigenen Installation wichtig.
+Version 1.0.6 ist ein stabiler Funktionsstand für den privaten Heimnetz-Einsatz. Die automatische Bon-Erkennung ist heuristisch und kann Fehler machen. Die Bild-KI ist optional und hängt von Modell und Hardware ab. Keine vollständige Offline-Bearbeitung; die PWA-Kompatibilität ist browserabhängig. Rezeptvorschläge, Supermarktangebote und selbstlernende Bon-Zuordnungen sind noch nicht Bestandteil dieses Releases. Browser-, Backup-/Restore- und reale KI-Tests bleiben bei der eigenen Installation wichtig.
 
 ## Entwicklung
 

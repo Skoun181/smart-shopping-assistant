@@ -124,9 +124,19 @@
       modal=null;await refresh();
     }catch(e){error=String(e);}finally{working=false;}
   }
-  async function updateItem(item:Item,scope:'shopping'|'pantry',body:Record<string,unknown>){
-    try{await request('/'+scope+'/'+item.id,{method:'PATCH',body:JSON.stringify({...body,expectedVersion:item.version})});await refresh(scope);}
-    catch(e){error=tr('Änderung fehlgeschlagen: ','Change failed: ')+String(e);await refresh(scope);}
+  async function updateItem(item:Item,scope:'shopping'|'pantry',body:Record<string,unknown>):Promise<boolean>{
+    try{
+      const result=await request<{pantryChanged?:boolean}>('/'+scope+'/'+item.id,{method:'PATCH',body:JSON.stringify({...body,expectedVersion:item.version})});
+      await refresh(scope);
+      if(result.pantryChanged)await refresh('pantry');
+      return true;
+    }catch(e){
+      await refresh(scope);
+      if(scope==='shopping')await refresh('pantry');
+      const msg=e instanceof Error?e.message:String(e);
+      error=tr('Änderung fehlgeschlagen: ','Change failed: ')+msg;
+      return false;
+    }
   }
   async function setPantryQuantity(item:Item,quantity:number){
     try{
@@ -134,7 +144,7 @@
     }finally{await refresh('pantry');}
   }
   async function removePantryEntry(item:Item){
-    if(confirm(tr('Vorratseintrag entfernen?','Remove pantry entry?')))await setPantryQuantity(item,0);
+    await setPantryQuantity(item,0);
   }
   async function removeItem(item:Item,scope:'shopping'|'pantry'){
     if(!confirm(tr('Eintrag entfernen?','Remove item?')))return;
@@ -175,7 +185,7 @@
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">V1.0.1 STABLE</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">V1.0.6 STABLE</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -188,12 +198,12 @@
       <section class="panel"><div class="heading"><h2>{tr('Nächster Einkauf','Next shopping trip')}</h2><button class="link" onclick={()=>tab='shopping'}>{tr('Alle anzeigen','View all')} →</button></div>
         {#if !outstanding}<p class="empty">{tr('Alles erledigt! Füge dein erstes Produkt hinzu.','All done! Add your first item.')}</p>{/if}
         {#each shopping.filter(i=>!i.checked).slice(0,6) as item(item.id)}
-          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={()=>updateItem(item,'shopping',{checked:true})}/><span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
+          <div class="item"><input type="checkbox" aria-label={tr('Als gekauft markieren','Mark purchased')} checked={!!item.checked} onchange={async(e)=>{const input=e.currentTarget;input.disabled=true;try{if(!await updateItem(item,'shopping',{checked:true}))input.checked=!!shopping.find(i=>i.id===item.id)?.checked;}finally{input.disabled=false;}}}/><span class="symbol" aria-hidden="true">{emojiFor(item,products)}</span><div class="item-name"><strong>{itemLabel(item)}</strong><small>{item.quantity} {unitLabel(item.unit_id)}</small></div></div>
         {/each}<button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Produkt hinzufügen','Add product')}</button>
       </section>
     {:else if tab==='shopping'}
       <div class="heading section-head shopping-controls">
-        <p class="subtle">{tr('Deine Produkte, übersichtlich nach Kategorien.','Your products, organized by category.')}</p>
+        <p class="subtle">{tr('Abhaken fügt Vorräte hinzu. Erneut öffnen ändert den Bestand nicht.','Checking adds stock. Reopening leaves stock unchanged.')}</p>
         <div class="shopping-actions">
           <button class="secondary" onclick={()=>openStarter(false)}>▦ {tr('Mehrere auswählen','Select multiple')}</button>
           <button class="primary" onclick={()=>openModal('shopping')}>＋ {tr('Einzeln hinzufügen','Add one')}</button>
@@ -231,7 +241,7 @@
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Version 1.0.1 · Nur für private Heimnetzwerke','Version 1.0.1 · Private home networks only')}</p>
+        <p class="subtle">{tr('Version 1.0.6 · Nur für private Heimnetzwerke','Version 1.0.6 · Private home networks only')}</p>
       </section>
     {/if}
   </main>

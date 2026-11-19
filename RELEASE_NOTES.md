@@ -1,27 +1,27 @@
-# Smart Shopping Assistant – Version 1.0.1 Stable
+# Smart Shopping Assistant – Version 1.0.6 Stable
 
-## Neu
-- Direkter LAN-Zugriff über IP und Port 3000.
-- Optionaler NGINX Reverse Proxy (auch auf einer separaten VM) mit demselben Upstream-Port.
-- Automatische Origin- und Protokollerkennung, ohne Änderung der bestehenden .env.
-- HTTP-/HTTPS-spezifische Session-Cookies, unveränderte Passwort- und Same-Origin-Prüfungen.
-- Aktualisierte Netzwerk-Dokumentation und NGINX-Konfigurationsbeispiele.
-- Keine neue Datenbankmigration oder npm-Abhängigkeiten.
+## Verbesserungen
+- Vorräte: Minus bis null und Entfernen ohne zusätzliche Bestätigung; Katalogprodukte bleiben erhalten.
+- Einkaufsliste: direkte Plus-/Minus-Steuerung und genaue Mengeneingabe per Tipp.
+- Abhaken erhöht automatisch den Vorrat am Standort Zuhause; gleiche Produkt-ID, Variante und Einheit werden zusammengeführt.
+- Enthaken öffnet den Artikel für den nächsten Einkauf, ohne bestehenden Vorrat zu reduzieren. Erneutes Abhaken bucht die nächste gekaufte Menge zusätzlich. Löschen aus der Einkaufsliste verändert den Vorrat nicht.
+- Transaktion und Versionsprüfung schützen vor doppelter Buchung durch wiederholte oder veraltete Anfragen. Live-Aktualisierung für Einkaufsliste und Vorräte.
+- Keine neuen npm-Abhängigkeiten. SQLite-Migration läuft automatisch beim Start.
 
 ## Update
-Vorher ein konsistentes SQLite-Backup erstellen und außerhalb der VM sichern. Im bisherigen Projektordner:
+Vorher ein konsistentes SQLite-Backup erstellen und außerhalb der VM sichern. Im bestehenden Projektordner:
 
 ```bash
 git fetch origin --tags
-git checkout v1.0.1
+git checkout v1.0.6
 sudo docker compose up -d --build
 sudo docker compose ps
 curl -fsS http://127.0.0.1:3000/api/v1/health
 ```
 
-Bestehende .env und Datenvolume behalten. Alte experimentelle Port-3001-Overrides entfernen, sonstige lokale Einstellungen beibehalten. Health-Version: 1.0.1.
+Bestehende .env und Datenvolume behalten. Niemals `docker compose down -v` für ein Update verwenden. Health-Version: 1.0.6.
 
-## Sicherheit und Grenzen
-Nur für vertrauenswürdige private Netze. Port 3000 per Netzwerkfirewall einschränken, keine Internet-Portfreigabe. Das vereinfachte Proxy-Modell akzeptiert X-Forwarded-Proto ohne Proxy-IP-Allowlist; NGINX muss Host und Scheme setzen. HTTP ist unverschlüsselt. Login-Limits beziehen sich auf den TCP-Peer (hinter NGINX gemeinsam). Für vertrauliche Daten HTTPS nutzen. Reale NGINX-/Browser-Tests auf der eigenen Installation bleiben erforderlich.
+## Hinweise
+Bereits vor der automatischen Vorratsbuchung abgehakte Artikel werden nicht nachträglich importiert. Durch frühere Entwicklungsversionen abgezogene Mengen werden nicht automatisch wiederhergestellt. Denselben Einkauf nicht zusätzlich komplett per Kassenbon importieren: Doppelbestände sind weiterhin möglich. Bei versehentlichem Abhaken kann der Bestand in Vorräte korrigiert werden.
 
-[Netzwerk-Anleitung](docs/network-access.md)
+Nur für vertrauenswürdige private Netze; keine Internet-Portfreigabe. Netzwerkzugriff wie in v1.0.1, siehe [Netzwerk-Anleitung](docs/network-access.md).

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { categoryEmoji,productEmoji } from './product-emoji';
+  import { nextQuantity,quantityStep } from '../pantry-controls';
 
   type Product = {id:string;category_id:string;name_de:string;name_en:string|null};
   type Category = {id:string;name_de:string;name_en:string};
@@ -14,11 +15,13 @@
   export let categories:Category[];
   export let items:Item[];
   export let lang:'de'|'en';
-  export let onUpdate:(item:Item,body:Record<string,unknown>) => void;
+  export let onUpdate:(item:Item,body:Record<string,unknown>) => Promise<boolean>;
   export let onRemove:(item:Item) => void;
 
   const KEY='ssa:category-collapse:v1';
   let collapsed:Record<string,boolean>={};
+  let pending:Record<string,boolean>={};
+  const format=(v:number)=>new Intl.NumberFormat(lang,{maximumSignificantDigits:15}).format(v);
   const tr=(de:string,en:string)=>lang==='de'?de:en;
   const itemName=(item:Item)=>lang==='en'&&item.name_en?item.name_en:item.name_de||item.name_snapshot;
   const variantLabel=(item:Item)=>lang==='en'&&item.variant_en?item.variant_en:item.variant_de;
@@ -43,11 +46,24 @@
     collapsed={...collapsed,[id]:!collapsed[id]};
     localStorage.setItem(KEY,JSON.stringify(collapsed));
   }
+  async function change(item:Item,body:Record<string,unknown>){
+    if(pending[item.id])return false;
+    pending={...pending,[item.id]:true};
+    try{return await onUpdate(item,body);}finally{pending={...pending,[item.id]:false};}
+  }
+  async function check(item:Item,input:HTMLInputElement){
+    if(!await change(item,{checked:!item.checked}))input.checked=!!items.find(i=>i.id===item.id)?.checked;
+  }
+  function step(item:Item,direction:-1|1){
+    const next=nextQuantity(item.quantity,item.unit_id,direction);
+    if(next>0&&next!==item.quantity&&!item.checked)void change(item,{quantity:next});
+  }
   function edit(item:Item){
+    if(item.checked||pending[item.id])return;
     const raw=prompt(tr('Neue Menge','New quantity'),String(item.quantity));
     if(raw===null || !raw.trim())return;
-    const next=Number(raw);
-    if(Number.isFinite(next) && next>0 && next<=1000000)onUpdate(item,{quantity:next});
+    const next=Number(raw.trim().replace(',','.'));
+    if(Number.isFinite(next) && next>0 && next<=1000000)void change(item,{quantity:next});
     else alert(tr('Bitte eine gültige Menge eingeben.','Please enter a valid quantity.'));
   }
 </script>
@@ -66,18 +82,18 @@
           {#each group.entries as item (item.id)}
             <div class:checked={!!item.checked} class="row">
               <input type="checkbox" checked={!!item.checked} aria-label={tr('Als gekauft markieren: ','Mark purchased: ')+itemName(item)}
-                onchange={()=>onUpdate(item,{checked:!item.checked})}/>
+                disabled={pending[item.id]} onchange={(e)=>check(item,e.currentTarget)}/>
               <span class="emoji" aria-hidden="true">{productEmoji(productFor(item)?.name_de||item.name_de||item.name_snapshot,group.id)}</span>
               <div class="details">
                 <strong>{itemName(item)}</strong>
-                <small>
-                  {#if variantLabel(item)}{variantLabel(item)} · {/if}
-                  {item.quantity} {unitLabel(item.unit_id)}
-                  {#if item.note} · {item.note}{/if}
-                </small>
+                {#if variantLabel(item)||item.checked||item.note}<small>{[variantLabel(item),item.checked?tr('Gekauft','Purchased'):'',item.note].filter(Boolean).join(' · ')}</small>{/if}
               </div>
-              <button class="action" type="button" title={tr('Menge bearbeiten','Edit quantity')} aria-label={tr('Menge bearbeiten: ','Edit quantity: ')+itemName(item)} onclick={()=>edit(item)}>✎</button>
-              <button class="action delete" type="button" title={tr('Entfernen','Delete')} aria-label={tr('Entfernen: ','Delete: ')+itemName(item)} onclick={()=>onRemove(item)}>×</button>
+              <div class="controls">
+                <button class="action step" type="button" disabled={!!item.checked||pending[item.id]||nextQuantity(item.quantity,item.unit_id,-1)===0} aria-label={itemName(item)+': '+tr('Menge reduzieren','Decrease quantity')+' '+format(quantityStep(item.unit_id))+' '+unitLabel(item.unit_id)} onclick={()=>step(item,-1)}>−</button>
+                <button class="action qty" type="button" disabled={!!item.checked||pending[item.id]} title={tr('Menge bearbeiten','Edit quantity')} aria-label={itemName(item)+': '+tr('Menge bearbeiten','Edit quantity')} onclick={()=>edit(item)}>{format(item.quantity)} {unitLabel(item.unit_id)}</button>
+                <button class="action step" type="button" disabled={!!item.checked||pending[item.id]||item.quantity>=1000000} aria-label={itemName(item)+': '+tr('Menge erhöhen','Increase quantity')+' '+format(quantityStep(item.unit_id))+' '+unitLabel(item.unit_id)} onclick={()=>step(item,1)}>+</button>
+                <button class="action delete" type="button" disabled={pending[item.id]} title={tr('Entfernen','Delete')} aria-label={tr('Entfernen: ','Delete: ')+itemName(item)} onclick={()=>onRemove(item)}>×</button>
+              </div>
             </div>
           {/each}
           <div class="progress" role="progressbar" aria-label={group.label} aria-valuemin="0" aria-valuemax={group.entries.length} aria-valuenow={group.entries.filter((item)=>!!item.checked).length}>
@@ -105,4 +121,6 @@
   .progress span{display:block;height:100%;border-radius:99px;background:var(--accent,#a7f3d0)}
   button:focus-visible,input:focus-visible{outline:2px solid var(--accent,#a7f3d0);outline-offset:2px}
   @media(max-width:540px){.category-head{padding:12px}.cat-content{padding:2px 11px 10px}.row{gap:8px}.emoji{width:27px;font-size:22px}.cat-label{font-size:14px}.counter{font-size:10px}.action{width:31px;height:31px}}
+  .controls{display:flex;align-items:center;gap:6px;flex-shrink:0}.qty{width:auto;padding:0 6px;font-size:13px;font-weight:750;min-width:55px;font-variant-numeric:tabular-nums}.step{width:40px;height:40px;font-size:22px}.controls .action{min-height:40px}.action:disabled{opacity:.45;cursor:not-allowed}.row{flex-wrap:wrap}.details{min-width:90px}
+  @media(max-width:540px){.controls{margin-left:auto}.controls .step,.controls .delete{width:38px;height:40px}.controls .qty{width:auto;min-width:48px}.details{min-width:80px}}
 </style>
