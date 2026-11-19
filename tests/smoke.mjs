@@ -43,6 +43,8 @@ res=await raw('/shopping/'+item.id,jsonOptions('PATCH',{checked:true,expectedVer
 assert.equal(res.status,200,'mark purchased');
 res=await raw('/shopping/'+item.id,jsonOptions('PATCH',{checked:true,expectedVersion:item.version},cookie));
 assert.equal(res.status,409,'stale version blocked');
+res=await raw('/pantry',opts);
+assert.equal((await res.json()).items.filter(i=>i.product_id===custom.id).reduce((n,i)=>n+i.quantity,0),3,'checked purchase transferred only once');
 res=await raw('/pantry',jsonOptions('POST',{productId:custom.id,quantity:1,unitId:'pcs',locationId:'home'},cookie));
 assert.equal(res.status,201,'pantry create');
 const pantryId=(await res.json()).id;
@@ -155,7 +157,7 @@ assert.equal(res.status,200,'consume last unit');
 res=await raw('/pantry',opts);assert.ok(!(await res.json()).items.some(i=>i.id===stock.id),'empty stock entry removed');
 res=await raw('/catalog',opts);assert.ok((await res.json()).products.some(p=>p.id===pantryCustom.productId),'catalog product preserved');
 // Release gate: verify import confirmation and idempotence with synthetic data.
-res=await raw('/health');assert.equal((await res.json()).version,'1.0.1','stable version');
+res=await raw('/health');assert.equal((await res.json()).version,'1.1.0-dev.1','stable version');
 res=await raw('/pantry/scan',{method:'POST',headers:{Origin:BASE,'Content-Type':'text/plain','X-Scan-Mode':'receipt',Cookie:cookie},body:'MILCH 1,29 A\nSUMME 1,29'});
 assert.equal(res.status,200,'local receipt scan');
 assert.equal((await res.json()).items.length,1,'receipt product suggestion');
