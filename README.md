@@ -48,6 +48,47 @@ Direkter Zugriff über `http://SERVER-IP:3000` und optional über NGINX auf dems
 
 Beide Zugangswege können gleichzeitig verwendet werden. Beispiel: Shopping-VM `192.168.0.150:3000`, NGINX-VM `192.168.0.66`, lokaler DNS-Eintrag `list.xc.local` auf die NGINX-IP. Einzelne Sitzungen müssen beim Wechsel der Adresse neu angemeldet werden.
 
+## Installation mit fertigem Docker-Image (GHCR)
+
+Für Linux x86-64 (amd64), beispielsweise eine Debian-VM auf Proxmox. Kein Git-Clone, Node.js oder lokaler Image-Build nötig. Das Container-Image wird nach erfolgreichen Stable-Tests aus dem freigegebenen Release-Tag gebaut. Der Versions-Tag `1.0.6` ist die empfohlene feste Version; `latest` bezeichnet den zuletzt veröffentlichten Stable-Release. GitHub-Packages-Sichtbarkeit ist unabhängig vom öffentlichen Quellcode: Das Paket muss öffentlich sein, damit Pulls ohne Login funktionieren.
+
+### Neue Installation
+
+```bash
+mkdir -p ~/apps/smart-shopping-assistant
+cd ~/apps/smart-shopping-assistant
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.registry.yaml -o compose.yaml
+sudo docker pull ghcr.io/skoun181/smart-shopping-assistant:1.0.6
+sudo docker run --rm -it --entrypoint node ghcr.io/skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env
+```
+
+Die ausgegebene Zeile `APP_PASSWORD_HASH='...'` vollständig in die lokale .env kopieren (einfache Anführungszeichen um den Hash behalten). Optional `APP_PORT=3000` und `SSA_IMAGE_TAG=1.0.6` ergänzen. Keine echten Zugangsdaten in GitHub speichern.
+
+```bash
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+### Bestehende Installation vom lokalen Build auf GHCR umstellen
+
+Im **bisherigen Projektordner** bleiben .env, Compose-Projektname, Dienstname `shopping` und Volume `shopping_data` unverändert. Vorher ein konsistentes Backup erstellen und außerhalb der VM sichern. Falls bisher ein eigener Projektname per `-p` oder `COMPOSE_PROJECT_NAME` verwendet wurde, denselben weiterhin verwenden.
+
+```bash
+cd ~/apps/smart-shopping-assistant
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.registry.yaml -o compose.registry.yaml
+sudo docker compose -f compose.registry.yaml pull
+sudo docker compose -f compose.registry.yaml up -d
+sudo docker compose -f compose.registry.yaml ps
+```
+
+Künftig immer dieselbe Compose-Datei und denselben Projektnamen verwenden. Bei einem Update zuerst Backup, dann den gewünschten veröffentlichten Versions-Tag als `SSA_IMAGE_TAG` in .env setzen und `pull` sowie `up -d` ausführen. Alternativ kann `latest` bewusst gewählt werden; es gibt keine automatischen Updates ohne Pull. Nie `down -v` verwenden. Die lokale Build-Installation unten bleibt weiterhin unterstützt.
+
+[Container-Paket auf GitHub](https://github.com/Skoun181/smart-shopping-assistant/pkgs/container/smart-shopping-assistant)
+
 ## Installation
 
 ### Voraussetzungen
