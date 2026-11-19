@@ -1,0 +1,97 @@
+name: Publish Smart Shopping Assistant to Docker Hub
+
+on:
+  push:
+    branches: ['stable/smart-shopping-assistant']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dockerhub:
+    if: github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: stable-dockerhub-publish
+      cancel-in-progress: false
+    env:
+      IMAGE: docker.io/skoun181/smart-shopping-assistant
+    steps:
+      - name: Check Docker Hub secret is configured
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Configure repository Actions secret DOCKERHUB_TOKEN before publishing."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify published stable release and use exact tagged source
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName --jq 'select(.isDraft == false and .isPrerelease == false) | .tagName' | grep -Fx "$tag"
+          git fetch origin "refs/tags/$tag:refs/tags/$tag"
+          revision="$(git rev-parse "$tag^{commit}")"
+          git merge-base --is-ancestor "$revision" "$GITHUB_SHA"
+          git checkout --detach "$revision"
+          test "$(node -p "require('./package.json').version")" = "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Verify source and build Linux amd64 image
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$REVISION" \
+            -t "$IMAGE:$VERSION" .
+      - name: Test image and APIs before publishing
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          HASH="$(node tests/ci-password.mjs)"
+          docker run -d --rm --name shopping-dockerhub-smoke -p 127.0.0.1:3333:3000 -e APP_PASSWORD_HASH="$HASH" "$IMAGE:$VERSION"
+          trap 'docker logs shopping-dockerhub-smoke || true; docker rm -f shopping-dockerhub-smoke || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          node tests/smoke.mjs
+          node tests/network-smoke.mjs
+      - name: Publish tested image to Docker Hub
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io -u skoun181 --password-stdin
+          trap 'docker logout docker.io >/dev/null' EXIT
+          if docker manifest inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+            docker pull "$IMAGE:$VERSION"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE:$VERSION")" = "$REVISION"
+          else
+            docker push "$IMAGE:$VERSION"
+          fi
+          if [ "$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)" = "v$VERSION" ]; then
+            docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+          fi
+          docker manifest inspect "$IMAGE:$VERSION" >/dev/null
+          echo "Published $IMAGE:$VERSION"
