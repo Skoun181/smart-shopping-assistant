@@ -52,7 +52,7 @@
     try{return await onUpdate(item,body);}finally{pending={...pending,[item.id]:false};}
   }
   async function check(item:Item,input:HTMLInputElement){
-    if(!await change(item,{checked:!item.checked}))input.checked=!!item.checked;
+    if(!await change(item,{checked:!item.checked}))input.checked=!!items.find(i=>i.id===item.id)?.checked;
   }
   function step(item:Item,direction:-1|1){
     const next=nextQuantity(item.quantity,item.unit_id,direction);
@@ -86,11 +86,7 @@
               <span class="emoji" aria-hidden="true">{productEmoji(productFor(item)?.name_de||item.name_de||item.name_snapshot,group.id)}</span>
               <div class="details">
                 <strong>{itemName(item)}</strong>
-                <small>
-                  {#if variantLabel(item)}{variantLabel(item)} · {/if}
-                  {#if item.checked}{tr('Gekauft','Purchased')}{/if}
-                  {#if item.note} · {item.note}{/if}
-                </small>
+                {#if variantLabel(item)||item.checked||item.note}<small>{[variantLabel(item),item.checked?tr('Gekauft','Purchased'):'',item.note].filter(Boolean).join(' · ')}</small>{/if}
               </div>
               <div class="controls">
                 <button class="action step" type="button" disabled={!!item.checked||pending[item.id]||nextQuantity(item.quantity,item.unit_id,-1)===0} aria-label={itemName(item)+': '+tr('Menge reduzieren','Decrease quantity')+' '+format(quantityStep(item.unit_id))+' '+unitLabel(item.unit_id)} onclick={()=>step(item,-1)}>−</button>
