@@ -25,7 +25,6 @@
   function all(value:boolean){saveCollapse(Object.fromEntries(grouped.map(g=>[g.id,value])));}
   async function change(item:PantryItem,quantity:number){
     if(pending[item.id]||quantity===item.quantity)return;
-    if(quantity===0&&!confirm(t('Letzten Bestand verbrauchen und den Vorratseintrag entfernen? Das Katalogprodukt bleibt erhalten.','Consume the last stock and remove this pantry entry? The catalog product remains.')))return;
     pending={...pending,[item.id]:true};message='';
     try{await onQuantity(item,quantity);}
     catch(e){message=t('Änderung nicht gespeichert. Bitte prüfe den aktualisierten Bestand. ','Change not saved. Check the refreshed stock. ')+(e instanceof Error?e.message:'');}
