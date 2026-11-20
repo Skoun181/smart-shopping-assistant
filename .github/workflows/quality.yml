@@ -38,10 +38,181 @@ jobs:
             [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Stable requires a final X.Y.Z version"; exit 1; }
             if git show-ref --verify --quiet "refs/tags/v$version"; then
               # Permit documentation, tests and CI maintenance without moving an existing tag.
-              git diff --exit-code "v$version" HEAD -- src scripts static Dockerfile package.json package-lock.json svelte.config.js svelte.config.ts vite.config.ts vite.config.js tsconfig.json .dockerignore || {
+              git diff --quiet "v$version" HEAD -- src scripts static Dockerfile package.json package-lock.json svelte.config.js svelte.config.ts vite.config.ts vite.config.js tsconfig.json .dockerignore || {
                 echo "::error::Application changes require a new version before merging to Stable."
                 exit 1
               }
+            else
+              previous="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          trap 'rm -f .env' EXIT
+          docker compose -f compose.registry.yaml config --quiet
+          version="$(node -p "require('./package.json').version")"
+          docker compose -f compose.registry.yaml config --images | grep -Fx "ghcr.io/skoun181/smart-shopping-assistant:$version"
+          docker compose -f compose.dockerhub.yaml config --quiet
+          docker compose -f compose.dockerhub.yaml config --images | grep -Fx "docker.io/skoun181/smart-shopping-assistant:$version"
+          docker compose -f compose.yaml config --images | grep -Fx "smart-shopping-assistant:$version"
+      - name: Docker image
+        run: docker build -t smart-shopping-ci .
+      - name: Smoke test container and APIs
+        run: |
+          set -euo pipefail
+          HASH="$(node tests/ci-password.mjs)"
+          docker run -d --rm --name shopping-smoke -p 127.0.0.1:3333:3000 -e ORIGIN=http://legacy.invalid:9999 -e APP_PASSWORD_HASH="$HASH" smart-shopping-ci
+          trap 'docker logs shopping-smoke || true; docker rm -f shopping-smoke || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          node tests/smoke.mjs
+          node tests/network-smoke.mjs
+
+  release:
+    # Stable merge is the release approval. Never publish a prerelease or move a tag.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: stable-release
+      cancel-in-progress: false
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish approved stable version
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName --jq 'select(.isDraft == false and .isPrerelease == false) | .tagName' | grep -Fx "$tag"
+            git fetch origin "refs/tags/$tag:refs/tags/$tag"
+            git merge-base --is-ancestor "$tag^{commit}" "$GITHUB_SHA"
+            echo "$tag already published; leaving release and tag untouched"
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag exists without a release; refusing to move or reuse it."
+            exit 1
+          else
+            rc=$?
+            test "$rc" -eq 2
+          fi
+          previous="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [ -n "$previous" ]; then
+            test "$(printf '%s\n' "$previous" "$tag" | sort -V | tail -n 1)" = "$tag" || { echo "::error::Version must be newer than $previous"; exit 1; }
+          fi
+          test "$(git ls-remote origin refs/heads/stable/smart-shopping-assistant | cut -f1)" = "$GITHUB_SHA" || { echo "::error::Stable has advanced; publish the current approved commit instead."; exit 1; }
+          test -s RELEASE_NOTES.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Version $version Stable" --notes-file RELEASE_NOTES.md --latest
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+  publish-container:
+    # Only publish the approved release, never a development or PR build.
+    if: needs.release.outputs.publish == 'true' && github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    needs: [quality, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: stable-container-publish
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      IMAGE: ghcr.io/skoun181/smart-shopping-assistant
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify approved release and check out its exact source
+        id: release
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName --jq 'select(.isDraft == false and .isPrerelease == false) | .tagName' | grep -Fx "$tag"
+          git fetch origin "refs/tags/$tag:refs/tags/$tag"
+          revision="$(git rev-parse "$tag^{commit}")"
+          git merge-base --is-ancestor "$revision" "$GITHUB_SHA"
+          git checkout --detach "$revision"
+          test "$(node -p "require('./package.json').version")" = "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Build and test the release image (Linux amd64)
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$REVISION" \
+            -t "$IMAGE:$VERSION" .
+          HASH="$(node tests/ci-password.mjs)"
+          docker run -d --rm --name shopping-registry-smoke -p 127.0.0.1:3333:3000 -e APP_PASSWORD_HASH="$HASH" "$IMAGE:$VERSION"
+          trap 'docker logs shopping-registry-smoke || true; docker rm -f shopping-registry-smoke || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          node tests/smoke.mjs
+          node tests/network-smoke.mjs
+      - name: Publish tested image to GHCR
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null' EXIT
+          if docker manifest inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+            # Keep the already published version unchanged on re-runs.
+            docker pull "$IMAGE:$VERSION"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE:$VERSION")" = "$REVISION"
+          else
+            docker push "$IMAGE:$VERSION"
+          fi
+          if [ "$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)" = "v$VERSION" ]; then
+            docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
+            docker push "$IMAGE:latest"
+          fi
+          docker manifest inspect "$IMAGE:$VERSION" >/dev/null
+          echo "Published $IMAGE:$VERSION"
+
+  publish-dockerhub:
+    if: needs.release.outputs.publish == 'true' && github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    needs: [quality, release]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/dockerhub-publish.yml
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+ | sort -V | tail -n 1 || true)"
+              if [ -n "$previous" ]; then
+                test "$(printf '%s\n' "$previous" "v$version" | sort -V | tail -n 1)" = "v$version" || { echo "::error::Version must be newer than $previous"; exit 1; }
+              fi
             fi
           fi
       - name: Validate pull-only Compose file
