@@ -388,6 +388,18 @@ sudo docker compose -f compose.dockerhub.yaml ps
 
 Ab dann für Updates und Verwaltung stets diese Compose-Datei verwenden. Kein neuer Passwort-Hash nötig. Das bestehende Volume muss vor dem Wechsel mit dem bisherigen Compose-Projektnamen überprüft werden. Nur falls bisher abweichende lokale Compose-Overrides notwendig waren, deren Einstellungen bewusst übernehmen.
 
+## Daten exportieren, importieren und Server wechseln (Develop)
+
+Die kommende Version hat unter **Einstellungen → Daten sichern & umziehen** zwei neue Funktionen: **ZIP exportieren** und **Backup importieren**. Diese Änderungen sind **nur im Develop-Branch**; das bisherige Stable-Image 1.0.6 enthält sie noch nicht.
+
+- **Enthalten:** Einkaufslisten, Vorräte, Produkte, eigene Kategorien, Varianten, Lagerorte und Import-/Buchungszuordnungen sowie Exportdatum, App- und Datenbank-Schema-Version und SHA-256-Prüfsumme.
+- **Nicht enthalten:** Passwort/Hash, API-Schlüssel, Sitzungen, Loginversuche, .env, Docker-/Netzwerkkonfiguration und Browser-Einstellungen. Kassenbons und Bilder werden derzeit nicht dauerhaft gespeichert.
+- **Sicherheit:** ZIP-Größe maximal 32 MiB, Prüfsummen- und Schema-Prüfung, Importwarnung, automatisches Sicherheits-Backup unter `/data/backups/` auf dem Zielsystem und transaktionale Wiederherstellung. Die ZIP selbst ist nicht verschlüsselt.
+
+**Umzug in fünf einfachen Schritten:** 1. Auf dem alten Server ZIP herunterladen. 2. Auf dem neuen Server eine kompatible App-Installation und ein eigenes Passwort einrichten. 3. ZIP auswählen und prüfen. 4. Datenersetzung bestätigen. 5. Einkaufslisten und Vorräte prüfen, erst dann alten Server abschalten.
+
+**[Ausführliche Schritt-für-Schritt-Anleitung einschließlich Docker Compose, Docker Run, Stack-Manager, SCP und Datenvolume](https://github.com/Skoun181/smart-shopping-assistant/blob/develop/smart-shopping-assistant-next/docs/backup-and-migration.md)**
+
 ## Backup & Wartung
 
 Die SQLite-Datenbank liegt im Container unter `/data/shopping.db`. Bei Compose:
