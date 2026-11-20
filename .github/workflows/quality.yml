@@ -29,26 +29,6 @@ jobs:
         run: npm run build
       - name: Security audit
         run: npm audit --omit=dev --audit-level=high
-      - name: Verify version consistency and release policy
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          node -e 'const p=require("./package.json"),l=require("./package-lock.json");if(p.version!==l.version||p.version!==l.packages[""].version)process.exit(1)'
-          if [[ "$GITHUB_REF" == "refs/heads/stable/smart-shopping-assistant" || "${GITHUB_BASE_REF:-}" == "stable/smart-shopping-assistant" ]]; then
-            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Stable requires a final X.Y.Z version"; exit 1; }
-            if git show-ref --verify --quiet "refs/tags/v$version"; then
-              # Permit documentation, tests and CI maintenance without moving an existing tag.
-              git diff --quiet "v$version" HEAD -- src scripts static Dockerfile package.json package-lock.json svelte.config.js svelte.config.ts vite.config.ts vite.config.js tsconfig.json .dockerignore || {
-                echo "::error::Application changes require a new version before merging to Stable."
-                exit 1
-              }
-            else
-              previous="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
-              if [ -n "$previous" ]; then
-                test "$(printf '%s\n' "$previous" "v$version" | sort -V | tail -n 1)" = "v$version" || { echo "::error::Version must be newer than $previous"; exit 1; }
-              fi
-            fi
-          fi
       - name: Validate pull-only Compose file
         run: |
           set -euo pipefail
@@ -75,6 +55,26 @@ jobs:
           node tests/smoke.mjs
           node tests/network-smoke.mjs
 
+      - name: Verify version consistency and release policy
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          node -e 'const p=require("./package.json"),l=require("./package-lock.json");if(p.version!==l.version||p.version!==l.packages[""].version)process.exit(1)'
+          if [[ "$GITHUB_REF" == "refs/heads/stable/smart-shopping-assistant" || "${GITHUB_BASE_REF:-}" == "stable/smart-shopping-assistant" ]]; then
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Stable requires a final X.Y.Z version"; exit 1; }
+            if git show-ref --verify --quiet "refs/tags/v$version"; then
+              # Permit documentation, tests and CI maintenance without moving an existing tag.
+              git diff --quiet "v$version" HEAD -- src scripts static Dockerfile package.json package-lock.json svelte.config.js svelte.config.ts vite.config.ts vite.config.js tsconfig.json .dockerignore || {
+                echo "::error::Application changes require a new version before merging to Stable."
+                exit 1
+              }
+            else
+              previous="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+              if [ -n "$previous" ]; then
+                test "$(printf '%s\n' "$previous" "v$version" | sort -V | tail -n 1)" = "v$version" || { echo "::error::Version must be newer than $previous"; exit 1; }
+              fi
+            fi
+          fi
   release:
     # Stable merge is the release approval. Never publish a prerelease or move a tag.
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/stable/smart-shopping-assistant'
