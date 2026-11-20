@@ -6,6 +6,7 @@
   import GroupedPantry from '#lib/ui/GroupedPantry.svelte';
   import CategoriesManager from '#lib/ui/CategoriesManager.svelte';
   import PantryImport from '#lib/ui/PantryImport.svelte';
+  import BackupManager from '#lib/ui/BackupManager.svelte';
   import type { Unit } from '#lib/pantry-import.ts';
   import {productEmoji} from '#lib/ui/product-emoji.ts';
   type Product={id:string;category_id:string;name_de:string;name_en:string|null;brand:string|null;source:string};
@@ -240,6 +241,7 @@
         <h3>{tr('Farbschema','Theme')}</h3><div class="choices"><button class:chosen={theme==='mint'} onclick={()=>chooseTheme('mint')}>🟢 Dark Mint</button><button class:chosen={theme==='violet'} onclick={()=>chooseTheme('violet')}>🟣 Dark Violet</button></div>
         <h3>{tr('Sprache','Language')}</h3><div class="choices"><button class:chosen={lang==='de'} onclick={()=>chooseLanguage('de')}>Deutsch</button><button class:chosen={lang==='en'} onclick={()=>chooseLanguage('en')}>English</button></div>
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
+        <BackupManager {lang} onRestored={()=>refresh()}/>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
         <p class="subtle">{tr('Version 1.0.6 · Nur für private Heimnetzwerke','Version 1.0.6 · Private home networks only')}</p>
       </section>
