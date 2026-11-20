@@ -2,6 +2,37 @@
 
 Diese Anleitung beschreibt die neue Backup-Oberfläche im **Develop-Branch**. Das bislang veröffentlichte Image v1.0.6 enthält diese Funktion noch nicht. Erst ein künftiger freigegebener Release wird damit auf Docker Hub verfügbar sein.
 
+## Die neue Funktion schon jetzt in Develop testen
+
+Du musst nicht auf das nächste Docker-Hub-Image warten. Auf einer **separaten Test-VM** kannst du den Develop-Branch direkt als eigenes Docker-Image bauen. Bestehende Produktivdaten nicht ohne vorheriges Backup überschreiben.
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+git clone --branch develop/smart-shopping-assistant-next \
+  https://github.com/Skoun181/smart-shopping-assistant.git
+cd smart-shopping-assistant
+umask 077
+cp .env.example .env
+chmod 600 .env
+sudo docker run --rm -it --network none \
+  -v "$PWD/scripts:/work:ro" -w /work \
+  node:24-alpine node hash-password.mjs
+nano .env
+```
+
+Die vollständige generierte Zeile `APP_PASSWORD_HASH='scrypt$...'` in `.env` eintragen. Ggf. `APP_PORT=8080` verwenden, wenn 3000 belegt ist. Dann:
+
+```bash
+sudo docker compose up -d --build
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+Wenn APP_PORT=8080 eingestellt ist, stattdessen den Health-Check über Port 8080 aufrufen. Im Browser die Testinstanz öffnen, mit dem eigenen Passwort anmelden und **Einstellungen → Daten sichern & umziehen** aufrufen. Testdaten anlegen, exportieren und anschließend auf einer zweiten Develop-Testinstanz importieren.
+
+**Achtung:** Der Health-Check kann weiterhin `1.0.6` als technische Basisversion melden; die Oberfläche kennzeichnet diesen Stand ausdrücklich als **DEV**. Der veröffentlichte Stable-Tag `v1.0.6` und das Docker-Hub-Image `1.0.6` enthalten die neue Funktion nicht.
+
 ## Was wird gespeichert?
 
 | Bestandteil | Export |
