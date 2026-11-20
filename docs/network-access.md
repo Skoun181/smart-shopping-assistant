@@ -8,7 +8,7 @@ Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den 
 - NGINX: 192.168.0.66
 - Lokaler DNS: A list.xc.local → 192.168.0.66 (.local ist für mDNS reserviert; alternativ home.arpa).
 
-NGINX leitet an http://192.168.0.150:3000 weiter und setzt Host auf die ursprüngliche Browser-Adresse und X-Forwarded-Proto auf das tatsächliche Schema. Siehe [NGINX-Beispiel](../deploy/nginx-remote.example.conf). Bei NGINX Proxy Manager: Scheme http, Forward Hostname/IP 192.168.0.150, Forward Port 3000. SSE-Buffering deaktivieren und client_max_body_size 6m setzen. TLS kann unabhängig am Proxy eingerichtet werden. Kein URL-Pfadpräfix.
+NGINX leitet an http://192.168.0.150:3000 weiter und setzt Host auf die ursprüngliche Browser-Adresse und X-Forwarded-Proto auf das tatsächliche Schema. Siehe [NGINX-Beispiel](../deploy/nginx-remote.example.conf). Bei NGINX Proxy Manager: Scheme http, Forward Hostname/IP 192.168.0.150, Forward Port 3000. SSE-Buffering deaktivieren und client_max_body_size 34m setzen (für die Backup-ZIP-Wiederherstellung); andere Uploads werden weiterhin durch die App begrenzt. TLS kann unabhängig am Proxy eingerichtet werden. Kein URL-Pfadpräfix.
 
 ## Update
 
