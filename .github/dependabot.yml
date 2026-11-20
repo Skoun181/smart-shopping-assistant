@@ -1,18 +1,22 @@
+# Keep only the two permanent branches: scheduled version-update PRs are disabled.
+# Security alerts and manual dependency review remain important.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    open-pull-requests-limit: 0
     target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
   - package-ecosystem: docker
     directory: /
+    open-pull-requests-limit: 0
     target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
     directory: /
+    open-pull-requests-limit: 0
     target-branch: develop/smart-shopping-assistant-next
     schedule:
       interval: weekly
