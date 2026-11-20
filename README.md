@@ -440,7 +440,22 @@ SvelteKit, Svelte, TypeScript, Node.js 24, better-sqlite3, REST, SSE, Docker Com
 
 - `stable/smart-shopping-assistant`: freigegebene Versionen.
 - `develop/smart-shopping-assistant-next`: laufende Entwicklung.
-- GitHub Actions prüft Typen, Tests, Build, Produktionsabhängigkeiten, Compose und APIs. Docker Hub und GHCR werden aus freigegebenen Release-Tags veröffentlicht; keine Develop-Images als Stable.
+- GitHub Actions prüft Typen, Tests, Build, Produktionsabhängigkeiten, Compose und APIs.
+- Es gibt nur zwei dauerhafte Entwicklungsbranches. Neue Funktionen und Fehlerkorrekturen werden auf Develop vorbereitet, nicht in zusätzlichen Versionsbranches.
+- Jeder freigegebene Anwendungsstand erhält eine neue Versionsnummer und einen unveränderlichen Release-Tag (z. B. v1.0.7). Der nächste Release wird erst nach ausdrücklicher Freigabe über einen Pull Request von Develop nach Stable übernommen.
+- Dokumentations- und reine CI-Wartungsänderungen dürfen ohne neue Anwendungsversionsnummer erfolgen. Bestehende Release-Tags und feste Image-Tags werden dabei nicht verschoben oder neu veröffentlicht.
+- Automatische Dependabot-Version-PRs sind deaktiviert, damit keine regelmäßigen zusätzlichen Branches entstehen. Sicherheitswarnungen und die CI-Sicherheitsprüfung bleiben wichtig; Abhängigkeiten auf Develop regelmäßig prüfen und aktualisieren. GitHub kann bei aktivierten automatischen Sicherheitsupdates weiterhin temporäre Dependabot-Branches anlegen.
+
+### Einen neuen Stable-Release vorbereiten
+
+1. Develop auf den aktuellen Stable-Stand bringen (Fast-Forward bzw. Merge, kein Force-Push).
+2. Änderungen auf Develop entwickeln und testen.
+3. Bei Freigabe eine neue höhere finale Version X.Y.Z in package.json und package-lock.json eintragen (z. B. `npm version 1.0.7 --no-git-tag-version`). Versionsanzeige, Health-API, Compose-Image-Tags, .env.example, README und RELEASE_NOTES.md ebenfalls anpassen. Keine Version doppelt verwenden.
+4. Pull Request Develop → Stable erstellen, erfolgreiche CI abwarten und erst dann freigeben/mergen.
+5. Der Workflow erstellt aus der Paketversion automatisch den GitHub-Release samt vX.Y.Z-Tag und veröffentlicht die geprüften Images auf Docker Hub und GHCR mit X.Y.Z sowie latest (nur für den neuesten Stable-Release).
+6. Release und beide Registry-Uploads prüfen; danach Develop wieder mit Stable synchronisieren.
+
+Ein bereits vorhandener Release-Tag bleibt unverändert. Die Workflows können für einen fehlgeschlagenen Upload manuell auf Stable erneut gestartet werden; die Images werden aus dem exakten Release-Tag gebaut und bestehende Versions-Tags nicht absichtlich überschrieben. Keine Beta-/RC-Version wird als Stable veröffentlicht.
 
 ```bash
 npm ci
