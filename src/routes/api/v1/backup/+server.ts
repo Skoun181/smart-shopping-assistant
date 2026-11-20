@@ -19,6 +19,8 @@ export const GET:RequestHandler=()=>{
     });
   }catch(cause){
     console.error('[backup] export failed:',cause instanceof Error?cause.name:'UnknownError');
+    if(cause instanceof Error && /exceeds|too large/i.test(cause.message))
+      return response({error:'Das Backup überschreitet die Größenbegrenzung (24 MiB Daten / 32 MiB ZIP).'},413);
     return response({error:'Export fehlgeschlagen. Bitte Server-Logs prüfen.'},500);
   }
 };
