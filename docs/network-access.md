@@ -1,6 +1,6 @@
-# Netzwerkzugriff (1.0.1 Stable)
+# Netzwerkzugriff (1.0.7 Stable)
 
-Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den vorhandenen APP_PORT). Keine zusätzliche Compose-Datei, keine Proxy-IP-Freigabeliste und keine Origin-Einstellung in .env nötig. Alte ORIGIN- und BIND_ADDRESS-Werte werden ignoriert. Das Passwort und Datenvolume bleiben erhalten.
+Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den direkt in Compose gesetzten Host-Port). Keine zusätzliche Compose-Datei, keine Proxy-IP-Freigabeliste und keine .env-Datei oder Origin-Einstellung nötig. Alte ORIGIN- und BIND_ADDRESS-Werte werden ignoriert. Das Passwort und Datenvolume bleiben erhalten.
 
 ## Zwei VMs
 
@@ -8,11 +8,11 @@ Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den 
 - NGINX: 192.168.0.66
 - Lokaler DNS: A list.xc.local → 192.168.0.66 (.local ist für mDNS reserviert; alternativ home.arpa).
 
-NGINX leitet an http://192.168.0.150:3000 weiter und setzt Host auf die ursprüngliche Browser-Adresse und X-Forwarded-Proto auf das tatsächliche Schema. Siehe [NGINX-Beispiel](../deploy/nginx-remote.example.conf). Bei NGINX Proxy Manager: Scheme http, Forward Hostname/IP 192.168.0.150, Forward Port 3000. SSE-Buffering deaktivieren und client_max_body_size 6m setzen. TLS kann unabhängig am Proxy eingerichtet werden. Kein URL-Pfadpräfix.
+NGINX leitet an http://192.168.0.150:3000 weiter und setzt Host auf die ursprüngliche Browser-Adresse und X-Forwarded-Proto auf das tatsächliche Schema. Siehe [NGINX-Beispiel](../deploy/nginx-remote.example.conf). Bei NGINX Proxy Manager: Scheme http, Forward Hostname/IP 192.168.0.150, Forward Port 3000. SSE-Buffering deaktivieren und client_max_body_size 34m setzen (für die Backup-ZIP-Wiederherstellung); andere Uploads werden weiterhin durch die App begrenzt. TLS kann unabhängig am Proxy eingerichtet werden. Kein URL-Pfadpräfix.
 
 ## Update
 
-Backup anlegen, extern sichern, `git fetch origin --tags` und `git checkout v1.0.1` ausführen. Falls aus einem früheren RC eine compose.override.yaml oder compose.remote-proxy.yaml für den zweiten Listener existiert, nur diese alte Proxy-Konfiguration entfernen bzw. eigene sonstige Einstellungen behalten. Dann docker compose config --quiet und docker compose up -d --build. Beide Zugangswege prüfen; ggf. erneut anmelden.
+Backup anlegen, extern sichern, `git fetch origin --tags` und `git checkout v1.0.7` ausführen. Falls aus einem früheren RC eine compose.override.yaml oder compose.remote-proxy.yaml für den zweiten Listener existiert, nur diese alte Proxy-Konfiguration entfernen bzw. eigene sonstige Einstellungen behalten. Dann docker compose config --quiet und docker compose up -d --build. Beide Zugangswege prüfen; ggf. erneut anmelden.
 
 ## Sicherheit
 

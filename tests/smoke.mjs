@@ -1,5 +1,7 @@
 // @ts-nocheck — container smoke harness, validated at runtime by Node assertions
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const expectedVersion=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version;
 const BASE='http://127.0.0.1:3333';
 const password='ci-testing-password-very-long';
 async function raw(path,options={}) {return fetch(BASE+'/api/v1'+path,options);}
@@ -10,6 +12,20 @@ let res=await raw('/health');
 assert.equal(res.status,200,'health');
 res=await raw('/catalog');
 assert.equal(res.status,401,'catalog should require login');
+// No environment password: first startup is a one-time shared-password setup.
+res=await fetch(BASE+'/login');assert.match(await res.text(),/Create Login/);
+res=await raw('/auth/login',jsonOptions('POST',{password}));
+assert.equal(res.status,409,'login before setup rejected');
+res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:password},undefined,'http://evil.example'));
+assert.equal(res.status,403,'cross-origin setup rejected');
+res=await raw('/auth/setup',jsonOptions('POST',{password:'short',confirmation:'short'}));
+assert.equal(res.status,400,'short setup password rejected');
+res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:'wrong'}));
+assert.equal(res.status,400,'confirmation required');
+const setupResults=await Promise.all([raw('/auth/setup',jsonOptions('POST',{password,confirmation:password})),raw('/auth/setup',jsonOptions('POST',{password,confirmation:password}))]);
+assert.deepEqual(setupResults.map(r=>r.status).sort(),[201,409],'setup exactly once even for concurrent requests');
+res=await raw('/auth/setup',jsonOptions('POST',{password:'attacker-password-123',confirmation:'attacker-password-123'}));
+assert.equal(res.status,409,'setup cannot overwrite existing password');
 res=await raw('/auth/login',jsonOptions('POST',{password},undefined,'http://evil.example'));
 assert.equal(res.status,403,'cross-origin login must be blocked');
 res=await raw('/auth/login',jsonOptions('POST',{password:'wrong-password'}));
@@ -165,7 +181,7 @@ assert.equal(res.status,200,'consume last unit');
 res=await raw('/pantry',opts);assert.ok(!(await res.json()).items.some(i=>i.id===stock.id),'empty stock entry removed');
 res=await raw('/catalog',opts);assert.ok((await res.json()).products.some(p=>p.id===pantryCustom.productId),'catalog product preserved');
 // Release gate: verify import confirmation and idempotence with synthetic data.
-res=await raw('/health');assert.equal((await res.json()).version,'1.0.6','stable version');
+res=await raw('/health');assert.equal((await res.json()).version,expectedVersion,'application version');
 res=await raw('/pantry/scan',{method:'POST',headers:{Origin:BASE,'Content-Type':'text/plain','X-Scan-Mode':'receipt',Cookie:cookie},body:'MILCH 1,29 A\nSUMME 1,29'});
 assert.equal(res.status,200,'local receipt scan');
 assert.equal((await res.json()).items.length,1,'receipt product suggestion');
@@ -177,8 +193,30 @@ res=await raw('/pantry',opts);assert.equal((await res.json()).items.length,relea
 res=await raw('/pantry/import',jsonOptions('POST',stableImport,cookie));assert.equal(res.status,201,'approved import');
 res=await raw('/pantry/import',jsonOptions('POST',stableImport,cookie));assert.equal(res.status,200,'idempotent retry');assert.equal((await res.json()).repeated,true);
 res=await raw('/pantry',opts);assert.equal((await res.json()).items.length,releaseBefore+2,'no duplicated stock on retry');
+// Portable backup: authenticated ZIP export, preview, corruption rejection and restore.
+res=await raw('/backup',{headers:{Cookie:cookie}});
+assert.equal(res.status,200,'download portable backup');
+assert.match(res.headers.get('content-type')||'',/application\/zip/);
+const exported=Buffer.from(await res.arrayBuffer());
+assert.ok(exported.subarray(0,2).equals(Buffer.from('PK')),'valid ZIP signature');
+assert.ok(!exported.includes(Buffer.from('auth.password_hash'))&&!exported.includes(Buffer.from('scrypt$32768')),'backup excludes credentials');
+res=await raw('/backup/preview',{method:'POST',headers:{Origin:BASE,'Content-Type':'application/zip',Cookie:cookie},body:exported});
+assert.equal(res.status,200,'preview valid backup');
+const backupPreview=await res.json();
+assert.ok(backupPreview.totalRecords>0,'backup has data');
+res=await raw('/backup/preview',{method:'POST',headers:{Origin:'http://malicious.invalid','Content-Type':'application/zip',Cookie:cookie},body:exported});
+assert.equal(res.status,403,'backup preview protected by origin');
+const brokenZip=Buffer.from(exported);brokenZip[45]^=7;
+res=await raw('/backup/preview',{method:'POST',headers:{Origin:BASE,'Content-Type':'application/zip',Cookie:cookie},body:brokenZip});
+assert.equal(res.status,422,'invalid ZIP is rejected');
+res=await raw('/backup/restore',{method:'POST',headers:{Origin:BASE,'Content-Type':'application/zip',Cookie:cookie},body:exported});
+assert.equal(res.status,200,'restore accepted');
+const restored=await res.json();
+assert.equal(restored.importedRecords,backupPreview.totalRecords);
+assert.match(restored.safetyBackup,/^pre-import-.*\.zip$/);
+res=await raw('/pantry',opts);assert.ok((await res.json()).items.length>=releaseBefore+2,'pantry restored and available');
 res=await raw('/auth/logout',{method:'POST',headers:{Origin:BASE,Cookie:cookie}});
 assert.equal(res.status,200,'logout');
 res=await raw('/shopping',opts);
 assert.equal(res.status,401,'logout revoked session');
-console.log('SMOKE_TEST_OK login, CSRF, catalog expansion, custom categories, moves, atomic free-text shopping/pantry, bulk selection, duplicates, concurrency and validation');
+console.log('SMOKE_TEST_OK first-run setup, login, CSRF, catalog expansion, pantry and shopping, portable ZIP backup and restore');

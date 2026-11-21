@@ -1,0 +1,18 @@
+# Fresh Synology installation; existing installations keep the existing mount.
+services:
+  shopping:
+    image: docker.io/skoun181/smart-shopping-assistant:1.0.7
+    container_name: shopping
+    restart: unless-stopped
+    init: true
+    ports:
+      - "4445:3000"
+    volumes:
+      - /volume2/docker/shopping:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m

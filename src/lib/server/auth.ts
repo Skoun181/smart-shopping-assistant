@@ -1,25 +1,15 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
 import { database, now } from './db';
+import { loginState, createPassword, verifyPassword } from './credentials';
 
 const SESSION_COOKIE = 'shopping_session';
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000;
 const WINDOW_MS = 15 * 60 * 1000;
 
-export function checkPassword(password: string): boolean {
-  const encoded = process.env.APP_PASSWORD_HASH ?? '';
-  const parts = encoded.split('$');
-  if (parts.length !== 5 || parts[0] !== 'scrypt') throw new Error('APP_PASSWORD_HASH is missing or malformed');
-  const [, nString, rString, pString, saltDigest] = parts;
-  // Encoded form: scrypt$N$r$p$salt_base64:digest_base64
-  const [salt, digest] = saltDigest.split(':');
-  const n = Number(nString), r = Number(rString), p = Number(pString);
-  if (n !== 32768 || r !== 8 || p !== 1 || !salt || !digest) throw new Error('Unsupported password hash parameters');
-  const expected = Buffer.from(digest, 'base64');
-  if (expected.length !== 32) throw new Error('Invalid password hash');
-  const actual = scryptSync(password, Buffer.from(salt, 'base64'), 32, { N: n, r, p, maxmem: 64 * 1024 * 1024 });
-  return timingSafeEqual(actual, expected);
-}
+export function credentialState() { return loginState(database(),process.env.APP_PASSWORD_HASH??''); }
+export function setupPassword(password:string):boolean { return createPassword(database(),password,process.env.APP_PASSWORD_HASH??''); }
+export function checkPassword(password:string):boolean {return verifyPassword(database(),password,process.env.APP_PASSWORD_HASH??'');}
 export function tokenDigest(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
@@ -32,6 +22,7 @@ export function newSession(cookies: Cookies, secure: boolean): void {
   cookies.set(cookieName(secure), raw, { path: '/', httpOnly: true, sameSite: 'lax', secure, maxAge: SESSION_MS / 1000 });
 }
 export function getSession(cookies: Cookies, secure: boolean): string | null {
+  if (credentialState()!=='ready') return null;
   const raw = cookies.get(cookieName(secure));
   if (!raw || !/^[A-Za-z0-9_-]{40,64}$/.test(raw)) return null;
   const digest = tokenDigest(raw);

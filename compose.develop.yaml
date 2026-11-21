@@ -1,0 +1,21 @@
+# No .env required. Edit the image tag and host port directly.
+services:
+  shopping-develop:
+    image: ghcr.io/skoun181/smart-shopping-assistant:develop
+    container_name: shopping-develop
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3008:3000"
+    volumes:
+      - shopping_develop_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_develop_data:
+    name: shopping-develop-data

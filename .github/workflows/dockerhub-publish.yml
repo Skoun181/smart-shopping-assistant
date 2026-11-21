@@ -66,8 +66,7 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          HASH="$(node tests/ci-password.mjs)"
-          docker run -d --rm --name shopping-dockerhub-smoke -p 127.0.0.1:3333:3000 -e APP_PASSWORD_HASH="$HASH" "$IMAGE:$VERSION"
+          docker run -d --rm --name shopping-dockerhub-smoke -p 127.0.0.1:3333:3000 "$IMAGE:$VERSION"
           trap 'docker logs shopping-dockerhub-smoke || true; docker rm -f shopping-dockerhub-smoke || true' EXIT
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
