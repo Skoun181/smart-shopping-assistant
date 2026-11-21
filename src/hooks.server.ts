@@ -7,7 +7,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const path = event.url.pathname;
   event.locals.sessionTokenHash = getSession(event.cookies,event.url.protocol==='https:');
   event.locals.authenticated = !!event.locals.sessionTokenHash;
-  if (path.startsWith('/api/') && path !== '/api/v1/auth/login' && path !== '/api/v1/health' && !event.locals.authenticated) {
+  if (path.startsWith('/api/') && path !== '/api/v1/auth/login' && path !== '/api/v1/auth/setup' && path !== '/api/v1/health' && !event.locals.authenticated) {
     throw error(401,'Login required');
   }
   if (path.startsWith('/api/') && !['GET','HEAD','OPTIONS'].includes(event.request.method)) assertOrigin(event);

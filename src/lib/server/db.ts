@@ -14,6 +14,9 @@ export function database(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
+  // Only a genuinely new database may accept a first-run web setup.
+  const fresh = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1").get();
+  db.transaction(() => {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)');
   const dir = join(process.cwd(), 'scripts', 'migrations');
   for (const name of readdirSync(dir).filter((item) => item.endsWith('.sql')).sort()) {
@@ -26,6 +29,8 @@ export function database(): Database.Database {
     })();
   }
   seedCatalog(db);
+  if (fresh) db.prepare('INSERT INTO settings(key,value) VALUES(?,?)').run('auth.setup_allowed','1');
+  }).immediate();
   instance = db;
   return db;
 }
