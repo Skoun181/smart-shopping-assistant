@@ -1,0 +1,26 @@
+# Separate development preview, never mount the production SQLite volume.
+services:
+  shopping-develop:
+    image: ghcr.io/skoun181/smart-shopping-assistant:develop
+    container_name: shopping-develop
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_PASSWORD_HASH: "${APP_PASSWORD_HASH:?Password hash required}"
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "${APP_PORT:-3008}:3000"
+    volumes:
+      - shopping_develop_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_develop_data:
+    name: shopping-develop-data

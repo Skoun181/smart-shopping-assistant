@@ -253,6 +253,313 @@ In einer Key/Value-Maske nur den Hash selbst einfügen, ohne `APP_PASSWORD_HASH=
 
 Für Updates denselben Stack-Namen, Dienstnamen und dasselbe Volume behalten. Gewünschten SSA_IMAGE_TAG einstellen, neues Image pullen und den Stack neu deployen bzw. den Container neu erstellen. Bei Wechsel von einer bestehenden Installation das tatsächliche alte Volume zunächst überprüfen und explizit übernehmen, statt ein neues leeres Volume anzulegen. Einen Stack nicht gleichzeitig mit einem anderen Stack auf dasselbe SQLite-Datenvolume zugreifen lassen.
 
+### E – Develop über GHCR in Dockhand
+
+Der Workflow [Publish Develop to GHCR](https://github.com/Skoun181/smart-shopping-assistant/actions/workflows/develop-publish.yml) baut bei Pushes auf `develop/smart-shopping-assistant-next` ein Linux-AMD64-Image nach erfolgreichen Typprüfungen, Unit-Tests, Audit und Container-/API-Tests. Er veröffentlicht ausschließlich `develop` und commitbezogene `sha-<Commit-SHA>`-Tags. Stable-Versionen und `latest` bleiben unverändert. Das bestehende GHCR-Package behält seine bisherige Sichtbarkeit; Tags können nicht einzeln privat geschaltet werden.
+
+1. In GitHub Actions prüfen, dass der neueste Develop-Publish erfolgreich abgeschlossen ist.
+2. In Dockhand den gewünschten Host und die vorhandene GHCR-Registry (`https://ghcr.io`) auswählen. Falls erforderlich GitHub-Benutzername und PAT classic mit `read:packages` und Package-Zugriff verwenden.
+3. Unter Images → Pull Image als Image `skoun181/smart-shopping-assistant` und als Tag `develop` eingeben. Bei ausgewählter Registry nicht erneut `ghcr.io/` voranstellen.
+4. Auf dem Docker-Host einen separaten Passwort-Hash erzeugen. Falls der CLI-Pull bei einem privaten Package Authentifizierung benötigt, vorher `docker login ghcr.io -u DEIN_GITHUB_USERNAME` ausführen (Token als Passwort).
+
+~~~bash
+sudo docker run --rm -it --network none \
+  --entrypoint node ghcr.io/skoun181/smart-shopping-assistant:develop \
+  scripts/hash-password.mjs
+~~~
+
+5. Unter Stacks → Create Stack einen neuen Stack `shopping-develop` anlegen. Folgende [Compose-Vorlage](compose.develop.yaml) verwenden:
+
+~~~yaml
+# Separate development preview, never mount the production SQLite volume.
+services:
+  shopping-develop:
+    image: ghcr.io/skoun181/smart-shopping-assistant:develop
+    container_name: shopping-develop
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_PASSWORD_HASH: "${APP_PASSWORD_HASH:?Password hash required}"
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "${APP_PORT:-3008}:3000"
+    volumes:
+      - shopping_develop_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_develop_data:
+    name: shopping-develop-data
+~~~
+
+6. In Environment Variables den vollständigen generierten Hash (beginnend mit `scrypt# 🛒 Smart Shopping Assistant
+
+**Dein Haushalt. Deine Einkaufsliste. Deine Daten.**
+
+![Stable](https://img.shields.io/badge/stable-1.0.6-16a34a) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED) ![SQLite](https://img.shields.io/badge/database-SQLite-003b57)
+
+Eine selbst gehostete, mobilfreundliche Web-App für gemeinsame Einkäufe und Vorräte. Alle Haushaltsdaten bleiben in der lokalen SQLite-Datenbank. Für die Kernfunktionen werden keine Cloud-Dienste benötigt.
+
+**Aktuelle Stable-Version: 1.0.6**
+
+[GitHub](https://github.com/Skoun181/smart-shopping-assistant) · [Releases](https://github.com/Skoun181/smart-shopping-assistant/releases) · [Docker Hub](https://hub.docker.com/r/skoun181/smart-shopping-assistant/tags) · [GitHub Container Registry](https://github.com/Skoun181/smart-shopping-assistant/pkgs/container/smart-shopping-assistant)
+
+## Funktionen
+
+- Gemeinsame Einkaufsliste mit Kategorien, Produkt-Emojis, Mehrfachauswahl, Freitext und Plus-/Minus-Mengensteuerung.
+- Vorräte mit einklappbaren Kategorien, genauen Mengen und direktem Verbrauch ohne Bestätigungsdialog.
+- Automatische Vorratsbuchung beim Abhaken. Enthaken eröffnet einen neuen Einkaufsbedarf, ohne Vorräte abzuziehen.
+- Über 300 kuratierte Alltagsprodukte, eigene Produkte, Varianten und Kategorien.
+- Live-Synchronisierung zwischen Geräten, Deutsch/Englisch, Dark Mint/Dark Violet und PWA-Grundlagen.
+- Lokale Kassenbon-Erkennung (OCR), PDF/TXT, CSV-Import und optionale lokale Ollama-Bild-KI.
+
+## Installation
+
+### Voraussetzungen
+
+- Linux-Server oder Debian-VM auf Proxmox; fertige Images unterstützen Linux AMD64 (x86-64).
+- Docker Engine und für die Compose-Varianten das Docker Compose Plugin: [offizielle Docker-Installationsanleitung](https://docs.docker.com/engine/install/).
+- Git nur für Variante A; curl und ein Texteditor für die folgenden Beispiele.
+- Ein freier Host-Port (Standard: 3000).
+
+```bash
+docker --version
+docker compose version
+```
+
+**Nur eine der folgenden Varianten installieren.** Alle verwenden dieselbe Anwendung und ein persistentes Datenvolume. Die Beispiele setzen Docker-Zugriff über sudo voraus; bei einer entsprechend eingerichteten Docker-Umgebung kann sudo entfallen.
+
+| Variante | Empfehlung |
+| --- | --- |
+| A – Git Clone | Quellcode selbst bauen |
+| B – Docker Compose | Empfohlen: fertiges Docker-Hub-Image, ohne Git-Clone |
+| C – Docker Pull / Run | Ohne Compose, manuelle Container-Verwaltung |
+| D – Stack-Manager | Grafische Bereitstellung ohne separate .env-Datei |
+
+### A – Installation über Git Clone
+
+Quellcode der festen Stable-Version herunterladen:
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+git clone --branch v1.0.6 https://github.com/Skoun181/smart-shopping-assistant.git
+cd smart-shopping-assistant
+umask 077
+cp .env.example .env
+chmod 600 .env
+```
+
+Falls der Projektordner bereits vorhanden ist, stattdessen die Update-Anleitung verwenden. Gemeinsames Passwort (mindestens 12 Zeichen) lokal generieren:
+
+```bash
+sudo docker run --rm -it --network none \
+  -v "$PWD/scripts:/work:ro" -w /work \
+  node:24-alpine node hash-password.mjs
+nano .env
+```
+
+Die ausgegebene komplette Zeile `APP_PASSWORD_HASH='scrypt$...'` ersetzt den Platzhalter in der .env. Einfache Anführungszeichen beibehalten. Optional `APP_PORT=3000` anpassen.
+
+```bash
+sudo docker compose config --quiet
+sudo docker compose up -d --build
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+### B – Installation über Docker Compose (empfohlen)
+
+Kein Git-Clone, kein Node.js und kein lokaler Image-Build nötig.
+
+```bash
+mkdir -p ~/apps/smart-shopping-assistant
+cd ~/apps/smart-shopping-assistant
+```
+
+Datei `compose.yaml` erstellen:
+
+```yaml
+services:
+  shopping:
+    image: docker.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
+    volumes:
+      - shopping_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_data:
+```
+
+Das Image enthält bereits einen Healthcheck. Alternativ statt manueller Erstellung die [fertige Compose-Datei](https://github.com/Skoun181/smart-shopping-assistant/blob/stable/smart-shopping-assistant/compose.dockerhub.yaml) herunterladen (nur bei Neuinstallation unter diesem Namen speichern):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/compose.dockerhub.yaml -o compose.yaml
+```
+
+Image herunterladen und Passwort generieren:
+
+```bash
+sudo docker pull skoun181/smart-shopping-assistant:1.0.6
+sudo docker run --rm -it --network none --entrypoint node \
+  skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env
+```
+
+Inhalt der .env (Platzhalter durch die tatsächlich ausgegebene Hash-Zeile ersetzen):
+
+```dotenv
+APP_PASSWORD_HASH='DEIN_GENERIERTER_SCRYPT_HASH'
+APP_PORT=3000
+SSA_IMAGE_TAG=1.0.6
+```
+
+Die einfachen Anführungszeichen um den Hash beibehalten, damit Compose die Dollarzeichen nicht interpoliert. Das gewählte Klartextpasswort wird nur zur Anmeldung verwendet.
+
+```bash
+chmod 600 .env
+sudo docker compose config --quiet
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+**Alternative GHCR:** Im Compose-Beispiel nur die Image-Adresse durch `ghcr.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}` ersetzen und dieselbe GHCR-Adresse auch bei docker pull und beim Passwort-Generator verwenden. Das Paket muss öffentlich sein oder ein Registry-Login ist nötig.
+
+### C – Installation über Docker Pull und Docker Run (ohne Compose)
+
+Ein separates Beispiel mit manuell verwaltetem Container und eigenem persistentem Volume.
+
+```bash
+mkdir -p ~/apps/smart-shopping-assistant-run
+cd ~/apps/smart-shopping-assistant-run
+sudo docker pull skoun181/smart-shopping-assistant:1.0.6
+sudo docker run --rm -it --network none --entrypoint node \
+  skoun181/smart-shopping-assistant:1.0.6 scripts/hash-password.mjs
+umask 077
+nano .env.run
+```
+
+In .env.run den ausgegebenen Hash eintragen, diesmal **ohne** die umgebenden einfachen Anführungszeichen. Docker Run verarbeitet env-files anders als Compose; die Dollarzeichen bleiben wörtlich erhalten.
+
+```dotenv
+APP_PASSWORD_HASH=DEIN_GENERIERTER_SCRYPT_HASH
+```
+
+```bash
+chmod 600 .env.run
+sudo docker volume create ssa_run_data
+sudo docker run -d \
+  --name smart-shopping-assistant \
+  --restart unless-stopped --init \
+  --env-file .env.run \
+  -p 0.0.0.0:3000:3000 \
+  -v ssa_run_data:/data \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL --read-only \
+  --tmpfs /tmp:rw,nosuid,noexec,size=64m \
+  skoun181/smart-shopping-assistant:1.0.6
+
+sudo docker ps
+curl -fsS http://127.0.0.1:3000/api/v1/health
+```
+
+### D – Installation über einen Stack-Manager (Dockhand, Portainer usw.)
+
+Für grafische Docker-Stack-Manager kann die Konfiguration direkt über **Environment variables** erfolgen. Die folgende Compose-Datei benötigt keine separate .env-Datei. Das Beispiel orientiert sich an einem Compose-Stack-Editor; Bezeichnungen können je nach Manager abweichen.
+
+**1. Passwort-Hash lokal erzeugen**
+
+Auf dem Docker-Host in einem interaktiven Terminal:
+
+```bash
+sudo docker run --rm -it --network none \
+  --entrypoint node skoun181/smart-shopping-assistant:1.0.6 \
+  scripts/hash-password.mjs
+```
+
+Ein Passwort mit mindestens 12 Zeichen wählen und sicher notieren. Der Generator gibt eine Zeile der Form `APP_PASSWORD_HASH='scrypt$32768$8$1$SALZ:DIGEST'` aus. SALZ und DIGEST sind Platzhalter, nicht ein verwendbarer Hash.
+
+**2. Neuen Stack erstellen**
+
+Stack-Namen wählen, z. B. `shopping`, und diese Compose-Datei in den Editor einfügen:
+
+```yaml
+services:
+  shopping:
+    image: docker.io/skoun181/smart-shopping-assistant:${SSA_IMAGE_TAG:-1.0.6}
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_PASSWORD_HASH: "${APP_PASSWORD_HASH:?Password hash required}"
+      DATABASE_PATH: /data/shopping.db
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "0.0.0.0:${APP_PORT:-3000}:3000"
+    volumes:
+      - shopping_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=64m
+volumes:
+  shopping_data:
+```
+
+**3. Environment Variables hinterlegen**
+
+| Name | Wert |
+| --- | --- |
+| APP_PASSWORD_HASH | Der vollständige zuvor generierte Hash, beginnend mit scrypt$ (Pflicht) |
+| APP_PORT | 3000 oder ein eigener freier Host-Port (optional) |
+| SSA_IMAGE_TAG | 1.0.6 oder ein anderer freigegebener Registry-Tag (optional) |
+
+In einer Key/Value-Maske nur den Hash selbst einfügen, ohne `APP_PASSWORD_HASH=` und ohne die umgebenden einfachen Anführungszeichen. Der Hash muss unverändert mit allen Dollarzeichen, Doppelpunkt und Base64-Zeichen ankommen. Wenn der Manager stattdessen einen **rohen Compose-.env-Text** verlangt, die vollständige ausgegebene Zeile inklusive einfacher Anführungszeichen verwenden. Nicht den Klartext des Passworts in APP_PASSWORD_HASH eintragen. Keine echten Hashes, Passwörter oder Screenshots mit Secrets öffentlich teilen.
+
+![Stack-Manager: Compose-Datei links und Environment Variables rechts, Passwort-Hash anonymisiert](https://raw.githubusercontent.com/Skoun181/smart-shopping-assistant/stable/smart-shopping-assistant/docs/screenshots/stack-manager.png)
+
+*Beispiel aus einem Stack-Editor. Sensible Werte wurden im Screenshot vollständig verdeckt. Der interne Port bleibt 3000; ein zusätzlicher Test-Stack auf demselben Host benötigt einen anderen freien Host-Port.*
+
+**4. Validieren, speichern und deployen**
+
+**Validate** (falls vorhanden), anschließend **Create & Start** / **Deploy** auswählen. Container-Status und Logs prüfen; danach im Browser `http://SERVER-IP:3000` bzw. den gewählten Host-Port öffnen und mit dem gewählten Klartextpasswort anmelden.
+
+Für Updates denselben Stack-Namen, Dienstnamen und dasselbe Volume behalten. Gewünschten SSA_IMAGE_TAG einstellen, neues Image pullen und den Stack neu deployen bzw. den Container neu erstellen. Bei Wechsel von einer bestehenden Installation das tatsächliche alte Volume zunächst überprüfen und explizit übernehmen, statt ein neues leeres Volume anzulegen. Einen Stack nicht gleichzeitig mit einem anderen Stack auf dasselbe SQLite-Datenvolume zugreifen lassen.
+
+) als `APP_PASSWORD_HASH` hinterlegen, ohne Variablennamen und ohne umgebende Anführungszeichen bei einer Key/Value-Maske. Bei rohem Compose-.env-Text die komplette ausgegebene Zeile mit einfachen Anführungszeichen nutzen. Optional `APP_PORT` setzen (Standard 3008). Den Hash und das Klartextpasswort geheim halten.
+7. Validieren und deployen, dann `http://SERVER-IP:3008` öffnen und mit dem gewählten Klartextpasswort anmelden. Bei parallelen Instanzen auf demselben Hostnamen getrennte Browserprofile oder separate Hostnamen verwenden, da Cookies nicht nach Ports getrennt werden. Zugriff nur im vertrauenswürdigen Netz bzw. über HTTPS.
+8. Die Testinstanz nutzt ein eigenes Volume `shopping-develop-data`. Stable und Develop niemals gleichzeitig auf dasselbe SQLite-Volume zugreifen lassen. Stable 1.0.6 bietet noch keinen portablen ZIP-Export; für Testdaten ggf. eine konsistente separate Datenbankkopie gemäß Backup-Anleitung verwenden, nicht direkt das produktive Volume.
+
+Bei Develop-Updates Image erneut pullen und den Stack mit unverändertem Volume und Passwort neu erstellen. Kein `docker compose down -v` ausführen.
+
 ### Erste Anmeldung
 
 Im Browser `http://SERVER-IP:3000` öffnen und mit dem zuvor gewählten Passwort anmelden. Bei einem anderen Host-Port die URL und den Healthcheck entsprechend anpassen. Erwartete Health-Antwort:

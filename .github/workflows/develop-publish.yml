@@ -1,0 +1,88 @@
+name: Publish Develop to GHCR
+
+on:
+  push:
+    branches: ['develop/smart-shopping-assistant-next']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shopping-ghcr-develop
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/develop/smart-shopping-assistant-next'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/skoun181/smart-shopping-assistant
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install, check, test and audit
+        run: |
+          npm ci --no-fund
+          npm run check
+          npm test
+          npm audit --omit=dev --audit-level=high
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Develop image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ghcr.io/skoun181/smart-shopping-assistant:develop
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=develop
+          cache-from: type=gha,scope=shopping-develop
+          cache-to: type=gha,mode=max,scope=shopping-develop
+      - name: Smoke test container and APIs
+        run: |
+          set -euo pipefail
+          HASH="$(node tests/ci-password.mjs)"
+          docker volume create shopping-develop-smoke-data
+          trap 'docker logs shopping-develop-smoke || true; docker rm -f shopping-develop-smoke || true; docker volume rm shopping-develop-smoke-data || true' EXIT
+          docker run -d --name shopping-develop-smoke -p 127.0.0.1:3333:3000 \
+            -e APP_PASSWORD_HASH="$HASH" -v shopping-develop-smoke-data:/data \
+            --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m \
+            --cap-drop ALL --security-opt no-new-privileges:true --init "$IMAGE:develop"
+          ok=false
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then ok=true; break; fi
+            sleep 2
+          done
+          test "$ok" = true
+          node tests/smoke.mjs
+          node tests/network-smoke.mjs
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested Develop image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/develop/smart-shopping-assistant-next" --jq .object.sha)"
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "A newer Develop commit exists; skipping outdated publication."
+            exit 0
+          fi
+          docker tag "$IMAGE:develop" "$IMAGE:sha-$GITHUB_SHA"
+          docker push "$IMAGE:sha-$GITHUB_SHA"
+          docker push "$IMAGE:develop"
+          docker manifest inspect "$IMAGE:develop" >/dev/null
