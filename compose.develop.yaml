@@ -1,17 +1,12 @@
-# Separate development preview, never mount the production SQLite volume.
+# No .env required. Edit the image tag and host port directly.
 services:
   shopping-develop:
     image: ghcr.io/skoun181/smart-shopping-assistant:develop
     container_name: shopping-develop
     restart: unless-stopped
     init: true
-    environment:
-      APP_PASSWORD_HASH: "${APP_PASSWORD_HASH:?Password hash required}"
-      DATABASE_PATH: /data/shopping.db
-      HOST: 0.0.0.0
-      PORT: 3000
     ports:
-      - "${APP_PORT:-3008}:3000"
+      - "3008:3000"
     volumes:
       - shopping_develop_data:/data
     security_opt:
