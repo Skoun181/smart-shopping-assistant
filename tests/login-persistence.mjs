@@ -1,3 +1,4 @@
+// @ts-nocheck — runtime integration harness
 import assert from 'node:assert/strict';
 const base='http://127.0.0.1:3333';
 const password='ci-testing-password-very-long';

@@ -1,27 +1,15 @@
-# Smart Shopping Assistant – Version 1.0.6 Stable
+# Smart Shopping Assistant – Version 1.0.7 Stable
 
-## Verbesserungen
-- Vorräte: Minus bis null und Entfernen ohne zusätzliche Bestätigung; Katalogprodukte bleiben erhalten.
-- Einkaufsliste: direkte Plus-/Minus-Steuerung und genaue Mengeneingabe per Tipp.
-- Abhaken erhöht automatisch den Vorrat am Standort Zuhause; gleiche Produkt-ID, Variante und Einheit werden zusammengeführt.
-- Enthaken öffnet den Artikel für den nächsten Einkauf, ohne bestehenden Vorrat zu reduzieren. Erneutes Abhaken bucht die nächste gekaufte Menge zusätzlich. Löschen aus der Einkaufsliste verändert den Vorrat nicht.
-- Transaktion und Versionsprüfung schützen vor doppelter Buchung durch wiederholte oder veraltete Anfragen. Live-Aktualisierung für Einkaufsliste und Vorräte.
-- Keine neuen npm-Abhängigkeiten. SQLite-Migration läuft automatisch beim Start.
+- **Create Login:** Beim ersten Start gemeinsames Passwort einrichten, ohne Benutzername oder manuelle Hash-Erzeugung. Scrypt-Hash persistent in SQLite; Einrichtung serverseitig nur einmal möglich.
+- Keine .env oder Environment Variables für die Standardinstallation. Image-Tag und Host-Port direkt in Compose ändern. Eigene Synology-Vorlage mit Bind Mount.
+- Bestehende gültige APP_PASSWORD_HASH-Werte werden einmalig übernommen; bei fehlendem/beschädigtem Passwort einer bestehenden Installation muss der Host-Administrator die Einrichtung lokal freigeben. Reset widerruft Sitzungen, behält Haushaltsdaten.
+- Portabler ZIP-Export und -Import unter Einstellungen: Vorschau, Integrität, Schema, Sicherheits-Backup und transaktionaler Restore; keine Zugangsdaten im ZIP.
+- Automatisierte Tests prüfen Setup-Rennen, Origin, Persistenz nach Container-Neuerstellung, Legacy-Migration, Reset und Backup.
 
 ## Update
-Vorher ein konsistentes SQLite-Backup erstellen und außerhalb der VM sichern. Im bestehenden Projektordner:
 
-```bash
-git fetch origin --tags
-git checkout v1.0.6
-sudo docker compose up -d --build
-sudo docker compose ps
-curl -fsS http://127.0.0.1:3000/api/v1/health
-```
+Vorher konsistente externe Datenbanksicherung erstellen. Bestehende Mounts, Projektname und Port behalten. Bei funktionierendem alten Login zunächst mit dem alten Hash auf 1.0.7 aktualisieren, anmelden und anschließend die Passwort-ENV entfernen. Bei einem beschädigten Hash nach Entfernen der ENV lokal `docker exec shopping node scripts/reset-login.mjs --allow-setup` ausführen. Netzwerkzugriff während der Einrichtung auf den eigenen Client begrenzen.
 
-Bestehende .env und Datenvolume behalten. Niemals `docker compose down -v` für ein Update verwenden. Health-Version: 1.0.6.
+[Installation und Passwort-Reset](https://github.com/Skoun181/smart-shopping-assistant/blob/v1.0.7/README.md) · [ZIP-Backup-Anleitung](https://github.com/Skoun181/smart-shopping-assistant/blob/v1.0.7/docs/backup-and-migration.md)
 
-## Hinweise
-Bereits vor der automatischen Vorratsbuchung abgehakte Artikel werden nicht nachträglich importiert. Durch frühere Entwicklungsversionen abgezogene Mengen werden nicht automatisch wiederhergestellt. Denselben Einkauf nicht zusätzlich komplett per Kassenbon importieren: Doppelbestände sind weiterhin möglich. Bei versehentlichem Abhaken kann der Bestand in Vorräte korrigiert werden.
-
-Nur für vertrauenswürdige private Netze; keine Internet-Portfreigabe. Netzwerkzugriff wie in v1.0.1, siehe [Netzwerk-Anleitung](docs/network-access.md).
+Nur für vertrauenswürdige private Netze.
