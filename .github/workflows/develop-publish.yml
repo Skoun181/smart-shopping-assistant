@@ -52,11 +52,10 @@ jobs:
       - name: Smoke test container and APIs
         run: |
           set -euo pipefail
-          HASH="$(node tests/ci-password.mjs)"
           docker volume create shopping-develop-smoke-data
           trap 'docker logs shopping-develop-smoke || true; docker rm -f shopping-develop-smoke || true; docker volume rm shopping-develop-smoke-data || true' EXIT
           docker run -d --name shopping-develop-smoke -p 127.0.0.1:3333:3000 \
-            -e APP_PASSWORD_HASH="$HASH" -v shopping-develop-smoke-data:/data \
+            -v shopping-develop-smoke-data:/data \
             --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m \
             --cap-drop ALL --security-opt no-new-privileges:true --init "$IMAGE:develop"
           ok=false

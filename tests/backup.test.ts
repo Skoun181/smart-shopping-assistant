@@ -32,6 +32,7 @@ function fixture(){
     INSERT INTO pantry_imports(id,digest,item_count,created_at) VALUES('receipt','digest123',1,1);
     INSERT INTO shopping_pantry_transfers(shopping_item_id,pantry_item_id,quantity) VALUES('purchase','stock',2);
     INSERT INTO settings(key,value) VALUES('private-token','NEVER_EXPORT_THIS');
+    INSERT INTO settings(key,value) VALUES('auth.password_hash','scrypt$TEST_ONLY');
     INSERT INTO sessions(token_hash,created_at,expires_at) VALUES('secret-session',1,99);
     INSERT INTO login_attempts(ip_key,attempts,window_start) VALUES('secret-ip',1,1);
     INSERT INTO change_events(topic,created_at) VALUES('pantry',1);
@@ -62,7 +63,86 @@ describe('portable ZIP backup and restore',()=>{
       expect(file.filename).toMatch(/^smart-shopping-assistant-backup-\d{8}-\d{6}\.zip$/);
       const json=entries['data.json'].toString('utf8');
       expect(json).toContain('Salami');
-      for(const forbidden of ['NEVER_EXPORT_THIS','secret-session','secret-ip','APP_PASSWORD_HASH','scrypt$'])expect(json).not.toContain(forbidden);
+      for(const forbidden of ['NEVER_EXPORT_THIS','secret-session','secret-ip','APP_PASSWORD_HASH','auth.password_hash','scrypt])expect(json).not.toContain(forbidden);
+      const parsed=JSON.parse(json);
+      expect(Object.keys(parsed.tables).sort()).toEqual([...BACKUP_TABLES].sort());
+      const preview=previewBackup(db,file.bytes);
+      expect(preview.rowCounts.shopping_items).toBe(1);
+      expect(preview.rowCounts.shopping_pantry_transfers).toBe(1);
+      expect(preview.schemaVersion).toBe('0004_shopping_pantry_transfers.sql');
+      expect(preview.totalRecords).toBe(Object.values(preview.rowCounts).reduce((x,y)=>x+y,0));
+    }finally{db.close();}
+  });
+  test('restore overwrites target atomically, saves pre-import file and preserves current login',()=>{
+    const source=fixture(),target=fixture(),dir=temp();
+    try{
+      source.prepare("UPDATE pantry_items SET quantity=7 WHERE id='stock'").run();
+      const exportFile=exportBackup(source);
+      target.prepare("UPDATE pantry_items SET quantity=42 WHERE id='stock'").run();
+      const result=restoreBackup(target,exportFile.bytes,dir);
+      expect(result.importedRecords).toBeGreaterThan(1);
+      expect(result.rowCounts.products).toBe(1);
+      expect(count(target,'products')).toBe(1);
+      expect((target.prepare("SELECT quantity FROM pantry_items WHERE id='stock'").get() as {quantity:number}).quantity).toBe(7);
+      expect(count(target,'sessions')).toBe(1);
+      expect(count(target,'login_attempts')).toBe(1);
+      expect((target.prepare("SELECT value FROM settings WHERE key='private-token'").get() as {value:string}).value).toBe('NEVER_EXPORT_THIS');
+      expect((target.prepare("SELECT value FROM settings WHERE key='auth.password_hash'").get() as {value:string}).value).toBe('scrypt$TEST_ONLY');
+      const file=join(dir,result.safetyBackup);
+      expect(existsSync(file)).toBe(true);
+      expect(statSync(file).mode&0o777).toBe(0o600);
+      const backup=previewBackup(target,readFileSync(file));
+      expect(backup.totalRecords).toBe(result.importedRecords);
+      expect(JSON.stringify(JSON.parse(readZip(readFileSync(file))['data.json'].toString()))).toContain('"quantity":42');
+      expect((target.pragma('foreign_key_check') as unknown[])).toHaveLength(0);
+    }finally{source.close();target.close();}
+  });
+  test('invalid row references rollback fully; damaged bytes fail before safety backup',()=>{
+    const db=fixture(),dir=temp();
+    try{
+      const file=exportBackup(db),files=readZip(file.bytes);
+      const data=JSON.parse(files['data.json'].toString('utf8'));
+      data.tables.pantry_items[0].product_id='nonexistent-product';
+      const dataBytes=Buffer.from(JSON.stringify(data));
+      const manifest=JSON.parse(files['manifest.json'].toString('utf8'));
+      manifest.dataSha256=createHash('sha256').update(dataBytes).digest('hex');
+      const forged=makeZip({'data.json':dataBytes,'manifest.json':Buffer.from(JSON.stringify(manifest))});
+      expect(()=>restoreBackup(db,forged,dir)).toThrow();
+      expect(count(db,'products')).toBe(1);
+      expect((db.prepare("SELECT product_id FROM pantry_items").get() as {product_id:string}).product_id).toBe('salami');
+      const pre=readdirSync(dir).length;
+      const broken=Buffer.from(file.bytes);broken[42]^=17;
+      expect(()=>previewBackup(db,broken)).toThrow();
+      expect(()=>restoreBackup(db,broken,dir)).toThrow();
+      expect(readdirSync(dir)).toHaveLength(pre);
+    }finally{db.close();}
+  });
+  test('backup directory write failure rejects restore and keeps records',()=>{
+    const db=fixture(),dir=temp();
+    try{
+      const file=join(dir,'not-a-folder');writeFileSync(file,'no');
+      const original=exportBackup(db).bytes;
+      expect(()=>restoreBackup(db,original,file)).toThrow();
+      expect(count(db,'shopping_items')).toBe(1);
+      expect((db.prepare("SELECT quantity FROM pantry_items").get() as {quantity:number}).quantity).toBe(3);
+    }finally{db.close();}
+  });
+  test('schema/version mismatch, unexpected table and incorrect checksums are rejected',()=>{
+    const db=fixture();
+    try{
+      const original=readZip(exportBackup(db).bytes);
+      const manifest=JSON.parse(original['manifest.json'].toString('utf8'));
+      manifest.schemaMigrations=['wrong.sql'];manifest.schemaVersion='wrong.sql';
+      expect(()=>previewBackup(db,makeZip({'manifest.json':Buffer.from(JSON.stringify(manifest)),'data.json':original['data.json']}))).toThrow(/schema/i);
+      manifest.schemaMigrations=scripts;manifest.schemaVersion=scripts.at(-1);
+      manifest.appVersion='999.1.0';
+      expect(()=>previewBackup(db,makeZip({'manifest.json':Buffer.from(JSON.stringify(manifest)),'data.json':original['data.json']}))).toThrow(/version/i);
+      manifest.appVersion='1.0.6';manifest.dataSha256='0'.repeat(64);
+      expect(()=>previewBackup(db,makeZip({'manifest.json':Buffer.from(JSON.stringify(manifest)),'data.json':original['data.json']}))).toThrow(/checksum/i);
+    }finally{db.close();}
+  });
+});
+])expect(json).not.toContain(forbidden);
       const parsed=JSON.parse(json);
       expect(Object.keys(parsed.tables).sort()).toEqual([...BACKUP_TABLES].sort());
       const preview=previewBackup(db,file.bytes);
