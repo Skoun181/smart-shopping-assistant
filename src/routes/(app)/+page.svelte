@@ -174,7 +174,7 @@
 <svelte:head><title>Smart Shopping Assistant</title><meta name="description" content="Private Einkaufslisten und Vorräte"/></svelte:head>
 <div class:violet={theme==='violet'} class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="brand-icon">🛒</span><div><strong>Smart Shopping</strong><small>Assistant · Develop</small></div></div>
+    <div class="brand"><span class="brand-icon">🛒</span><div><strong>Smart Shopping</strong><small>Assistant</small></div></div>
     <nav aria-label="Navigation">
       <button class:active={tab==='dashboard'} onclick={()=>tab='dashboard'}>⌂ &nbsp; {tr('Übersicht','Overview')}</button>
       <button class:active={tab==='shopping'} onclick={()=>tab='shopping'}>☷ &nbsp; {tr('Einkaufsliste','Shopping list')}</button>
@@ -186,7 +186,7 @@
     <div class="side-footer">● {tr('Lokal verbunden','Local connection')}</div>
   </aside>
   <main>
-    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">V1.0.6 DEV</span></header>
+    <header class="topbar"><div><span class="eyebrow">SMART SHOPPING ASSISTANT</span><h1>{tab==='dashboard'?tr('Hallo Zuhause 👋','Hello home 👋'):tab==='shopping'?tr('Einkaufsliste','Shopping list'):tab==='pantry'?tr('Unsere Vorräte','Our pantry'):tab==='catalog'?tr('Produktkatalog','Product catalog'):tab==='categories'?tr('Kategorien','Categories'):tr('Einstellungen','Settings')}</h1></div><span class="beta">V1.0.7</span></header>
     {#if error}<div class="error" role="alert">{error}<button aria-label="Close" onclick={()=>error=''}>×</button></div>{/if}
     {#if loading}<p>{tr('Lade Haushaltsdaten …','Loading household data …')}</p>
     {:else if tab==='dashboard'}
@@ -243,7 +243,7 @@
         <h3>{tr('Erste Produktauswahl','Getting started')}</h3><button class="secondary" onclick={()=>openStarter(false)}>{tr('Produkttafel erneut öffnen','Open product gallery again')}</button>
         <BackupManager {lang} onRestored={()=>refresh()}/>
         <h3>{tr('Sitzung','Session')}</h3><button class="secondary" onclick={logout}>{tr('Abmelden','Sign out')}</button>
-        <p class="subtle">{tr('Entwicklungsstand auf Basis 1.0.6 · Nur für private Heimnetzwerke','Development build based on 1.0.6 · Private home networks only')}</p>
+        <p class="subtle">{tr('Version 1.0.7 · Nur für private Heimnetzwerke','Version 1.0.7 · Private home networks only')}</p>
       </section>
     {/if}
   </main>

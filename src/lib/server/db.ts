@@ -15,8 +15,8 @@ export function database(): Database.Database {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   // Only a genuinely new database may accept a first-run web setup.
-  const fresh = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1").get();
   db.transaction(() => {
+  const fresh = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1").get();
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)');
   const dir = join(process.cwd(), 'scripts', 'migrations');
   for (const name of readdirSync(dir).filter((item) => item.endsWith('.sql')).sort()) {
