@@ -10,8 +10,12 @@ describe('baseline security and schema checks',()=>{
   test('one shared LAN and proxy port by default',()=>{
     const env=readFileSync('.env.example','utf8');
     const compose=readFileSync('compose.yaml','utf8');
-    expect(compose).toContain('0.0.0.0:');
+    expect(compose).toMatch(/"(?:0\.0\.0\.0:)?3000:3000"/);
     expect(compose).not.toContain(':3001');
     expect(env).not.toContain('password123');
+    for(const file of ['compose.yaml','compose.registry.yaml','compose.dockerhub.yaml','compose.develop.yaml','compose.synology.yaml']){
+      const contents=readFileSync(file,'utf8');
+      expect(contents).not.toMatch(/env_file:|APP_PASSWORD_HASH|\$\{/);
+    }
   });
 });
