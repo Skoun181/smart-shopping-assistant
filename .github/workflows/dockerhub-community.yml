@@ -1,0 +1,49 @@
+name: Docker Hub community description
+
+on:
+  push:
+    branches: ['stable/smart-shopping-assistant']
+    paths:
+      - 'docs/dockerhub-community.md'
+      - '.github/scripts/sync-dockerhub-community.py'
+      - '.github/workflows/dockerhub-community.yml'
+  pull_request:
+    branches: ['stable/smart-shopping-assistant']
+    paths:
+      - 'docs/dockerhub-community.md'
+      - '.github/scripts/sync-dockerhub-community.py'
+      - '.github/workflows/dockerhub-community.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-community-description-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 .github/scripts/sync-dockerhub-community.py --self-test
+
+  sync:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/stable/smart-shopping-assistant'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Update community links without publishing images
+        env:
+          DOCKERHUB_USERNAME: skoun181
+          DOCKERHUB_IMAGE: skoun181/smart-shopping-assistant
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: python3 .github/scripts/sync-dockerhub-community.py
