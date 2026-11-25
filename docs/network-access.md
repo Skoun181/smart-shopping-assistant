@@ -1,6 +1,6 @@
 # Netzwerkzugriff (1.0.7 Stable)
 
-Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den direkt in Compose gesetzten Host-Port). Keine zusätzliche Compose-Datei, keine Proxy-IP-Freigabeliste und keine .env-Datei oder Origin-Einstellung nötig. Alte ORIGIN- und BIND_ADDRESS-Werte werden ignoriert. Das Passwort und Datenvolume bleiben erhalten.
+Direkter Zugriff und Reverse Proxy verwenden denselben HTTP-Port 3000 (bzw. den direkt in Compose gesetzten Host-Port). Für direkten HTTP-Zugriff ist keine Zusatzkonfiguration nötig. Für Proxy-Zugriff setzt die Anwendung eine explizite Liste vertrauenswürdiger Proxy-IP-Adressen voraus. Alte ORIGIN- und BIND_ADDRESS-Werte werden ignoriert. Das Passwort und Datenvolume bleiben erhalten.
 
 ## Zwei VMs
 
@@ -16,4 +16,6 @@ Backup anlegen, extern sichern, `git fetch origin --tags` und `git checkout v1.0
 
 ## Sicherheit
 
-Bewusst vereinfachter LAN-Betrieb: X-Forwarded-Proto kann von jedem erreichbaren Client gesetzt werden; der Server kann den tatsächlichen externen TLS-Status nicht unabhängig überprüfen. Darum nur im vertrauenswürdigen Heimnetz betreiben, Port 3000 per Proxmox-/Netzwerkfirewall begrenzen und keine Internetfreigabe einrichten. NGINX muss Host und X-Forwarded-Proto zuverlässig setzen. HTTP ist unverschlüsselt. Login-Throttling nutzt die TCP-Peer-IP, nicht frei übergebene Client-IP-Header; alle Clients hinter einem Proxy können sich daher ein Limit teilen. Sessions, Passwortprüfung und Same-Origin-Prüfung bleiben aktiv. HTTPS nutzt Secure-/HttpOnly-Cookies. Für eine öffentliche Bereitstellung wäre ein explizites Proxy-Vertrauensmodell nötig.
+Setze `TRUSTED_PROXY_IPS` auf die IP-Adressen der Reverse Proxys, wie sie am Shopping-Server als direkte TCP-Gegenstellen erscheinen. Setze `PUBLIC_ORIGIN` auf die externe Origin einschließlich Schema und gegebenenfalls Port, beispielsweise `https://list.home.arpa`. Der Proxy muss `Host`, `X-Forwarded-Proto` und `X-Forwarded-For` selbst überschreiben. Für direkte Verbindungen bleibt HTTP im privaten Netz verfügbar.
+
+Ein leeres Datenvolume erstellt das Konto nur mit einem einmaligen Setup-Token. Öffne zuerst die Login-Seite und lies das Token im Develop-Container mit `docker compose -f compose.develop.yaml exec shopping-develop cat /data/setup-token`. Ein Betreiber kann alternativ ein eigenes langes `APP_SETUP_TOKEN` im Container hinterlegen.

@@ -107,6 +107,7 @@ describe('portable ZIP backup and restore',()=>{
       const manifest=JSON.parse(files['manifest.json'].toString('utf8'));
       manifest.dataSha256=createHash('sha256').update(dataBytes).digest('hex');
       const forged=makeZip({'data.json':dataBytes,'manifest.json':Buffer.from(JSON.stringify(manifest))});
+      expect(()=>previewBackup(db,forged)).toThrow();
       expect(()=>restoreBackup(db,forged,dir)).toThrow();
       expect(count(db,'products')).toBe(1);
       expect((db.prepare("SELECT product_id FROM pantry_items").get() as {product_id:string}).product_id).toBe('salami');

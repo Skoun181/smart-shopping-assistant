@@ -26,6 +26,12 @@ assert.equal(r.status,403,'cross-origin blocked');
 r=await call(3333,domain,login,'http://'+domain,{'X-Forwarded-Proto':'http'},{password});
 assert.equal(r.status,200,'HTTP proxy login on same port');
 assert.match(r.headers['set-cookie'][0],/^shopping_session=/);
+if(process.env.EXPECT_TRUSTED_PROXY!=='1'){
+  const denied=await call(3333,domain,login,'https://'+domain,{'X-Forwarded-Proto':'https'},{password});
+  assert.equal(denied.status,403,'direct client cannot claim proxy HTTPS');
+  console.log('NETWORK_SMOKE_OK direct HTTP and untrusted proxy headers');
+  process.exit(0);
+}
 r=await call(3333,domain,login,'https://'+domain,{'X-Forwarded-Proto':'https'},{password});
 assert.equal(r.status,200,'HTTPS proxy login on same port');
 const secure=r.headers['set-cookie'][0];

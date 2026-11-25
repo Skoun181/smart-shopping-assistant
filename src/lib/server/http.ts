@@ -18,6 +18,7 @@ export const changeBody = z.object({
   note: note.optional(),
   expectedVersion: z.number().int().positive()
 }).strict();
+export const deleteBody = z.object({ expectedVersion: z.number().int().positive() }).strict();
 export const pantryBody = z.object({
   productId: uuid,
   variantId: uuid.nullable().optional(),

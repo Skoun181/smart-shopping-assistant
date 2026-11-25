@@ -2,7 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   export let data:PageData;
-  let password='',confirmation='',busy=false,message='';
+  let password='',confirmation='',setupToken='',busy=false,message='';
   $: setup=data.loginState==='setup';
   $: locked=data.loginState==='locked';
   async function submit(){
@@ -13,11 +13,12 @@
     }
     busy=true;
     try{
-      const res=await fetch('/api/v1/auth/'+(setup?'setup':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(setup?{password,confirmation}:{password})});
+      const res=await fetch('/api/v1/auth/'+(setup?'setup':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(setup?{password,confirmation,setupToken}:{password})});
       if(res.ok){password='';confirmation='';await goto('/',{invalidateAll:true});}
       else if(res.status===409){password='';confirmation='';await invalidateAll();message='Anmeldestatus geändert. Bitte erneut prüfen.';}
       else if(res.status===429)message='Zu viele Versuche. Bitte später erneut probieren.';
       else if(res.status===401)message='Passwort falsch / Incorrect password';
+      else if(res.status===403&&setup)message='Setup-Token ungültig oder Zugriff abgelehnt.';
       else if(res.status===400)message='Passwort oder Bestätigung ungültig.';
       else message='Anmeldung konnte nicht verarbeitet werden. Bitte Server-Logs prüfen.';
     }catch{message='Verbindung fehlgeschlagen / Connection failed';}
@@ -38,6 +39,8 @@
         <label for="password">{setup?'Neues gemeinsames Passwort':'Gemeinsames Passwort / Shared password'}</label>
         <input id="password" type="password" bind:value={password} minlength={setup?12:1} maxlength="1024" required disabled={busy} autocomplete={setup?'new-password':'current-password'} />
         {#if setup}
+          <label for="setup-token">Einmaliges Setup-Token</label>
+          <input id="setup-token" type="password" bind:value={setupToken} maxlength="256" required disabled={busy} autocomplete="off" />
           <label for="confirmation">Passwort wiederholen</label>
           <input id="confirmation" type="password" bind:value={confirmation} minlength="12" maxlength="1024" required disabled={busy} autocomplete="new-password"/>
         {/if}

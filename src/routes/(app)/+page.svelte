@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { modalFocus } from '#lib/ui/modal-focus.ts';
   import { goto } from '$app/navigation';
   import StarterPicker from '#lib/ui/StarterPicker.svelte';
   import GroupedShopping from '#lib/ui/GroupedShopping.svelte';
@@ -54,6 +55,7 @@
       }
     });
     live=new EventSource('/api/v1/events');
+    live.onopen=()=>{ void refresh(); };
     live.onmessage=(event)=>{try{refresh(JSON.parse(event.data).topic);}catch{refresh();}};
     return ()=>live?.close();
   });
@@ -66,8 +68,8 @@
     showStarter=false;
     localStorage.setItem(STARTER_KEY,'1');
   }
-  async function saveStarter(items:Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>){
-    await request('/shopping/bulk',{method:'POST',body:JSON.stringify({items})});
+  async function saveStarter(items:Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>,operationId:string){
+    await request('/shopping/bulk',{method:'POST',body:JSON.stringify({items,operationId})});
     closeStarter();
     tab='shopping';
     await refresh('shopping');
@@ -149,7 +151,7 @@
   }
   async function removeItem(item:Item,scope:'shopping'|'pantry'){
     if(!confirm(tr('Eintrag entfernen?','Remove item?')))return;
-    try{await request('/'+scope+'/'+item.id,{method:'DELETE'});await refresh(scope);}catch(e){error=String(e);}
+    try{await request('/'+scope+'/'+item.id,{method:'DELETE',body:JSON.stringify({expectedVersion:item.version})});await refresh(scope);}catch(e){error=String(e);}
   }
   async function customProduct(){
     if(!customName.trim())return;working=true;
@@ -257,7 +259,7 @@
   </nav>
   {#if modal}
     <div class="backdrop" role="presentation">
-      <div class="dialog" role="dialog" aria-modal="true" aria-label={tr('Eintrag hinzufügen','Add item')}>
+      <div class="dialog" use:modalFocus={()=>{if(!working)modal=null;}} role="dialog" aria-modal="true" aria-label={tr('Eintrag hinzufügen','Add item')}>
         <div class="heading"><h2>{modal==='custom'?tr('Eigenes Produkt erstellen','Create custom product'):modal==='shopping'?tr('Zur Einkaufsliste','Add to shopping list'):tr('Vorrat hinzufügen','Add to pantry')}</h2><button class="small-button" aria-label={tr('Schließen','Close')} onclick={()=>modal=null}>×</button></div>
         {#if modal==='custom'}
           <form onsubmit={(e)=>{e.preventDefault();customProduct();}}>
@@ -353,8 +355,8 @@
   .sidebar nav{display:grid;gap:7px}.sidebar nav button{text-align:left;background:transparent;border:0;color:#aab6c4;padding:14px 16px;border-radius:12px;font-size:14px}.sidebar nav button.active{color:var(--accent);background:var(--accent-soft);font-weight:650}.sidebar nav button:hover{background:#2a313a}
   .side-footer{margin-top:auto;padding:0 12px;color:#84cbaa;font-size:12px}
   main{max-width:1120px;width:100%;margin:0 auto;padding:38px 44px 80px}.topbar,.heading,.item{display:flex;align-items:center;justify-content:space-between;gap:12px}.eyebrow{font-size:11px;font-weight:750;letter-spacing:2px;color:var(--accent)}h1{font-size:clamp(25px,3vw,36px);letter-spacing:-.7px;margin:8px 0 0}h2{font-size:19px;margin:0}h3{font-size:14px;margin:16px 0 4px}.beta{border:1px solid #414c59;color:#a6b1bf;border-radius:99px;padding:6px 10px;font-size:11px;font-weight:700}.subtle{color:#9eabb9}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:26px 0}.stat{display:grid;gap:11px;background:#20262f;border:1px solid #323b46;border-radius:18px;padding:22px}.stat span{font-size:22px;color:var(--accent)}.stat strong{font-size:30px}.stat small{color:#aab6c4;font-size:13px}
-  .panel{background:#20262f;border:1px solid #333c46;border-radius:19px;padding:22px;margin-top:22px}.link{background:none;border:0;color:var(--accent);white-space:nowrap;font-size:13px}.item{border-bottom:1px solid #343d47;padding:15px 0;justify-content:flex-start}.item:last-child{border-bottom:0}.item input[type=checkbox]{width:24px;height:24px;flex-shrink:0;accent-color:var(--accent);cursor:pointer}.item-name{flex:1;min-width:0}.item-name strong{font-size:14px;display:block;overflow-wrap:anywhere}.item-name small{display:block;color:#a2adba;font-size:12px;margin-top:5px}.done .item-name strong{text-decoration:line-through;color:#83909f}
-  .primary{border:0;background:var(--accent);color:var(--accent-ink);padding:12px 18px;font-weight:750;border-radius:12px;min-height:44px}.primary:disabled{opacity:.5}.panel>.primary{margin-top:18px}.empty{padding:24px;color:#aebac7;text-align:center}.section-head{margin-top:20px}.section-head .subtle{margin:0}.small-button{border:1px solid #414c59;color:#cbd5df;background:#2a323c;border-radius:10px;width:34px;height:34px;flex-shrink:0}.danger{color:#eeaaad}.symbol{color:var(--accent);font-size:20px;min-width:26px}.tag{color:var(--accent);font-size:11px;background:var(--accent-soft);border-radius:8px;padding:5px 8px}
+  .panel{background:#20262f;border:1px solid #333c46;border-radius:19px;padding:22px;margin-top:22px}.link{background:none;border:0;color:var(--accent);white-space:nowrap;font-size:13px}.item{border-bottom:1px solid #343d47;padding:15px 0;justify-content:flex-start}.item:last-child{border-bottom:0}.item input[type=checkbox]{width:24px;height:24px;flex-shrink:0;accent-color:var(--accent);cursor:pointer}.item-name{flex:1;min-width:0}.item-name strong{font-size:14px;display:block;overflow-wrap:anywhere}.item-name small{display:block;color:#a2adba;font-size:12px;margin-top:5px}
+  .primary{border:0;background:var(--accent);color:var(--accent-ink);padding:12px 18px;font-weight:750;border-radius:12px;min-height:44px}.primary:disabled{opacity:.5}.panel>.primary{margin-top:18px}.empty{padding:24px;color:#aebac7;text-align:center}.section-head{margin-top:20px}.section-head .subtle{margin:0}.small-button{border:1px solid #414c59;color:#cbd5df;background:#2a323c;border-radius:10px;width:34px;height:34px;flex-shrink:0}.symbol{color:var(--accent);font-size:20px;min-width:26px}.tag{color:var(--accent);font-size:11px;background:var(--accent-soft);border-radius:8px;padding:5px 8px}
   .filters{display:flex;gap:12px;margin-top:24px}.filters input{flex:1;min-width:0}.filters select{max-width:220px}.filters input,.filters select,.dialog input,.dialog select{background:#171c23;border:1px solid #46515e;border-radius:10px;padding:12px;color:white;min-height:44px;width:100%}
   .list{margin-top:18px}.preferences{max-width:620px}.preferences .subtle{font-size:13px}.choices{display:flex;gap:12px;flex-wrap:wrap}.choices button{border:1px solid #45515e;background:#252d36;border-radius:12px;color:#e4ebf2;padding:13px 18px}.choices button.chosen{border-color:var(--accent);color:var(--accent)}.secondary{background:transparent;color:#e4ebf2;border:1px solid #526070;border-radius:12px;padding:12px 18px}.error{background:#482932;border:1px solid #8e4b5f;color:#ffd6dc;padding:13px;border-radius:12px;margin-top:22px;display:flex;justify-content:space-between}.error button{border:0;background:none;color:inherit}
   .mobile-nav{display:none}.backdrop{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:20;padding:16px}.dialog{width:min(100%,520px);max-height:90vh;overflow-y:auto;background:#222a34;border:1px solid #48535f;border-radius:22px;padding:24px}.dialog form{display:grid;gap:16px;margin-top:16px}.dialog label{display:grid;gap:7px;font-size:13px;color:#b7c4d2}.dialog .qty-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dialog input:focus,.dialog select:focus{outline:2px solid var(--accent)}

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { database, now } from '#lib/server/db.ts';
 import { name, note, parsed, quantity, response } from '#lib/server/http.ts';
+import { mergedQuantity } from '#lib/server/shopping-quantity.ts';
 import { changed } from '#lib/server/events.ts';
 
 const schema=z.object({
@@ -46,8 +47,7 @@ export const POST: RequestHandler=async(event)=>{
         "SELECT id,quantity FROM shopping_items WHERE list_id='default' AND checked=0 AND product_id=? AND variant_id IS ? AND unit_id=? AND note=? LIMIT 1"
       ).get(productId,variantId,input.unitId,input.note) as {id:string;quantity:number}|undefined;
       if(duplicate){
-        const next=Math.round((duplicate.quantity+input.quantity)*1000)/1000;
-        if(next>1000000)throw new Error('Quantity too large');
+        const next=mergedQuantity(duplicate.quantity,input.quantity);
         db.prepare('UPDATE shopping_items SET quantity=?,version=version+1,updated_at=? WHERE id=?')
           .run(next,t,duplicate.id);
         return {productId,itemId:duplicate.id,merged:true,createdProduct:!found};

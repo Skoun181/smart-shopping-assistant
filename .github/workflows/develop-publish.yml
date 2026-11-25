@@ -54,7 +54,7 @@ jobs:
           set -euo pipefail
           docker volume create shopping-develop-smoke-data
           trap 'docker logs shopping-develop-smoke || true; docker rm -f shopping-develop-smoke || true; docker volume rm shopping-develop-smoke-data || true' EXIT
-          docker run -d --name shopping-develop-smoke -p 127.0.0.1:3333:3000 \
+          docker run -d -e APP_SETUP_TOKEN=shopping-ci-setup-token --name shopping-develop-smoke -p 127.0.0.1:3333:3000 \
             -v shopping-develop-smoke-data:/data \
             --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m \
             --cap-drop ALL --security-opt no-new-privileges:true --init "$IMAGE:develop"

@@ -5,6 +5,9 @@ services:
     container_name: shopping-develop
     restart: unless-stopped
     init: true
+    environment:
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
     ports:
       - "3008:3000"
     volumes:

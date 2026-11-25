@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { modalFocus } from './modal-focus';
+  import { operationId } from './operation-id';
   import { categoryEmoji, productEmoji, defaultUnit } from './product-emoji';
 
   type Product = {id:string;category_id:string;name_de:string;name_en:string|null;brand:string|null};
@@ -14,7 +15,7 @@
   export let initial = false;
   export let onClose: () => void;
   export let onCustom: (name: string) => void;
-  export let onSave: (items: Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>) => Promise<void>;
+  export let onSave: (items: Array<{productId:string;quantity:number;unitId:string;variantId:string|null;note:string}>, operationId:string) => Promise<void>;
 
   const tr = (de:string,en:string) => lang === 'de' ? de : en;
   const displayName = (product:Product) => lang === 'en' && product.name_en ? product.name_en : product.name_de;
@@ -27,27 +28,11 @@
   let collapsed:Record<string,boolean>={};
   let saving=false;
   let message='';
-  let searchInput:HTMLInputElement;
-  let dialog:HTMLElement;
   $: selectedCount = Object.keys(choices).length;
   $: filtered = products.filter((p) => (displayName(p)+' '+p.name_de+' '+(p.brand??'')).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   $: groups = categories.map((c) => ({ category:c, items:filtered.filter((p) => p.category_id === c.id) })).filter((group)=>group.items.length>0);
   $: valid = selectedCount > 0 && Object.values(choices).every((choice)=>Number.isFinite(choice.quantity) && choice.quantity>0 && choice.quantity<=1000000);
 
-  onMount(() => {
-    // Keep keyboard navigation within the dialog while it is open.
-    searchInput?.focus();
-  });
-  function keyboard(event:KeyboardEvent) {
-    if (event.key === 'Escape' && !saving) {event.preventDefault();onClose();}
-    if (event.key !== 'Tab' || !dialog) return;
-    const focusable=Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled])'))
-      .filter((element)=>element.getClientRects().length > 0);
-    if (!focusable.length) return;
-    const first=focusable[0],last=focusable[focusable.length-1];
-    if (event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}
-    if (!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
-  }
   function toggle(product:Product) {
     if (choices[product.id]) {
       const next={...choices};delete next[product.id];choices=next;
@@ -59,13 +44,17 @@
     choices={...choices,[id]:{...choices[id],...patch}};
   }
   function toggleGroup(id:string){collapsed={...collapsed,[id]:!collapsed[id]};}
+  let lastSubmission: {payload:string;id:string}|undefined;
   async function save(){
     if (!valid || saving) return;
     saving=true;message='';
     try{
-      await onSave(Object.entries(choices).map(([productId,choice])=>({
+      const items=Object.entries(choices).map(([productId,choice])=>({
         productId,quantity:choice.quantity,unitId:choice.unitId,variantId:choice.variantId||null,note:''
-      })));
+      }));
+      const payload=JSON.stringify(items);
+      if(lastSubmission?.payload!==payload)lastSubmission={payload,id:operationId()};
+      await onSave(items,lastSubmission.id);
     }catch(cause){
       message=tr('Die Produkte konnten nicht gespeichert werden. Bitte erneut versuchen.','Products could not be saved. Please try again.')
         +' '+(cause instanceof Error?cause.message:'');
@@ -73,9 +62,8 @@
   }
 </script>
 
-<svelte:window onkeydown={keyboard}/>
 <div class="scrim">
-  <section bind:this={dialog} role="dialog" aria-modal="true" aria-labelledby="starter-title" aria-describedby="starter-desc" class="picker">
+  <div use:modalFocus={()=>{if(!saving)onClose();}} role="dialog" aria-modal="true" aria-labelledby="starter-title" aria-describedby="starter-desc" class="picker">
     <header class="picker-header">
       <div class="hero">
         <span class="hero-emoji" aria-hidden="true">🛒</span>
@@ -89,7 +77,7 @@
     </header>
     <div class="searchbar">
       <span aria-hidden="true">⌕</span>
-      <input bind:this={searchInput} bind:value={search} type="search" autocomplete="off"
+      <input data-initial-focus bind:value={search} type="search" autocomplete="off"
         placeholder={tr('Alle Produkte durchsuchen, z. B. Milch …','Search all products, e.g. Milk …')}
         aria-label={tr('Produkte suchen','Search products')}/>
       <span class="total">{filtered.length} {tr('Produkte','products')}</span>
@@ -174,7 +162,7 @@
       </div>
       {#if message}<p class="alert" role="alert">{message}</p>{/if}
     </footer>
-  </section>
+  </div>
 </div>
 
 <style>

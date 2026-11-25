@@ -15,7 +15,7 @@ describe('baseline security and schema checks',()=>{
     expect(env).not.toContain('password123');
     for(const file of ['compose.yaml','compose.registry.yaml','compose.dockerhub.yaml','compose.develop.yaml','compose.synology.yaml']){
       const contents=readFileSync(file,'utf8');
-      expect(contents).not.toMatch(/env_file:|APP_PASSWORD_HASH|\$\{/);
+      expect(contents).not.toMatch(/env_file:|APP_PASSWORD_HASH|\$\{[^}]+:\?/);
     }
   });
 });

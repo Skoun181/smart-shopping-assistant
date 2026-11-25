@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const expectedVersion=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version;
 const BASE='http://127.0.0.1:3333';
+const setupToken=process.env.APP_SETUP_TOKEN||'shopping-ci-setup-token';
 const password='ci-testing-password-very-long';
 async function raw(path,options={}) {return fetch(BASE+'/api/v1'+path,options);}
 function jsonOptions(method,data,cookie,origin=BASE){
@@ -16,13 +17,15 @@ assert.equal(res.status,401,'catalog should require login');
 res=await fetch(BASE+'/login');assert.match(await res.text(),/Create Login/);
 res=await raw('/auth/login',jsonOptions('POST',{password}));
 assert.equal(res.status,409,'login before setup rejected');
-res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:password},undefined,'http://evil.example'));
+res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:password,setupToken},undefined,'http://evil.example'));
 assert.equal(res.status,403,'cross-origin setup rejected');
 res=await raw('/auth/setup',jsonOptions('POST',{password:'short',confirmation:'short'}));
 assert.equal(res.status,400,'short setup password rejected');
 res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:'wrong'}));
 assert.equal(res.status,400,'confirmation required');
-const setupResults=await Promise.all([raw('/auth/setup',jsonOptions('POST',{password,confirmation:password})),raw('/auth/setup',jsonOptions('POST',{password,confirmation:password}))]);
+res=await raw('/auth/setup',jsonOptions('POST',{password,confirmation:password}));
+assert.equal(res.status,403,'initial setup requires local token');
+const setupResults=await Promise.all([raw('/auth/setup',jsonOptions('POST',{password,confirmation:password,setupToken})),raw('/auth/setup',jsonOptions('POST',{password,confirmation:password,setupToken}))]);
 assert.deepEqual(setupResults.map(r=>r.status).sort(),[201,409],'setup exactly once even for concurrent requests');
 res=await raw('/auth/setup',jsonOptions('POST',{password:'attacker-password-123',confirmation:'attacker-password-123'}));
 assert.equal(res.status,409,'setup cannot overwrite existing password');
@@ -76,7 +79,7 @@ res=await raw('/pantry',opts);
 assert.ok((await res.json()).items.some((i)=>i.id===pantryId),'pantry fetch');
 res=await raw('/pantry',jsonOptions('POST',{productId:custom.id,quantity:-5,unitId:'pcs',locationId:'home'},cookie));
 assert.equal(res.status,400,'invalid quantity blocked');
-res=await raw('/pantry/'+pantryId,{method:'DELETE',headers:{Origin:BASE,Cookie:cookie}});
+res=await raw('/pantry/'+pantryId,jsonOptions('DELETE',{expectedVersion:1},cookie));
 assert.equal(res.status,200,'delete pantry item');
 // Bulk selection should add many products in one atomic operation.
 const selection = catalog.products.filter((p)=>p.name_de==='Milch'||p.name_de==='Äpfel');
@@ -96,6 +99,16 @@ assert.equal(stats.merged,2,'bulk merges duplicates');
 res=await raw('/shopping',opts);
 let groupedItems=(await res.json()).items;
 assert.equal(groupedItems.find((i)=>i.product_id===milk.id&&i.unit_id==='l').quantity,2,'merged milk has two litres');
+const batch = {operationId:'d66d59cc-6495-4e4f-882d-6ef35f6dad7d',items:[
+  {productId:milk.id,quantity:0.125,unitId:'l',note:'operation-id'}
+]};
+for(let attempt=0;attempt<2;attempt++){
+  res=await raw('/shopping/bulk',jsonOptions('POST',batch,cookie));
+  assert.equal(res.status,201);
+}
+res=await raw('/shopping',opts);
+groupedItems=(await res.json()).items;
+assert.equal(groupedItems.find(i=>i.note==='operation-id').quantity,0.125,'retry does not change quantity');
 // If one product is invalid, NO valid product should have been written.
 const before=groupedItems.length;
 res=await raw('/shopping/bulk',jsonOptions('POST',{items:[

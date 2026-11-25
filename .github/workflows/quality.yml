@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           docker volume create shopping-smoke-data
           trap 'docker logs shopping-smoke || true; docker rm -f shopping-smoke || true; docker volume rm shopping-smoke-data || true' EXIT
-          docker run -d --name shopping-smoke -p 127.0.0.1:3333:3000 -v shopping-smoke-data:/data --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m --cap-drop ALL --security-opt no-new-privileges:true --init smart-shopping-ci
+          docker run -d -e APP_SETUP_TOKEN=shopping-ci-setup-token --name shopping-smoke -p 127.0.0.1:3333:3000 -v shopping-smoke-data:/data --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m --cap-drop ALL --security-opt no-new-privileges:true --init smart-shopping-ci
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
             sleep 1
@@ -55,7 +55,7 @@ jobs:
           node tests/smoke.mjs
           node tests/network-smoke.mjs
           docker rm -f shopping-smoke
-          docker run -d --name shopping-smoke -p 127.0.0.1:3333:3000 -v shopping-smoke-data:/data --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m --cap-drop ALL --security-opt no-new-privileges:true --init smart-shopping-ci
+          docker run -d -e APP_SETUP_TOKEN=shopping-ci-setup-token --name shopping-smoke -p 127.0.0.1:3333:3000 -v shopping-smoke-data:/data --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m --cap-drop ALL --security-opt no-new-privileges:true --init smart-shopping-ci
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:3333/api/v1/health >/dev/null 2>&1; then break; fi
             sleep 1

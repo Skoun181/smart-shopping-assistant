@@ -1,6 +1,6 @@
-import type Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { MAX_ARCHIVE_BYTES, makeZip, readZip } from './backup-zip';
@@ -19,9 +19,11 @@ export const BACKUP_TABLES=[
   'product_variants','shopping_items','pantry_items','pantry_imports',
   'shopping_pantry_transfers'
 ] as const;
-const OMITTED=['schema_migrations','sessions','login_attempts','change_events','settings'];
+const OMITTED=['schema_migrations','sessions','login_attempts','change_events','settings','shopping_operations'];
 const MAX_DATA_BYTES=24*1024*1024;
 const MAX_ROWS=100000;
+const SAFETY_BACKUP_RETENTION=5;
+const TECHNICAL_MIGRATIONS=new Set(['0005_shopping_operations.sql']);
 function fail(message:string):never{throw new Error(message);}
 function appVersion():string{
   const value=JSON.parse(readFileSync(join(process.cwd(),'package.json'),'utf8')).version as unknown;
@@ -29,7 +31,7 @@ function appVersion():string{
   return value;
 }
 export function schemaMigrations(db:Database.Database):string[]{
-  return (db.prepare('SELECT name FROM schema_migrations ORDER BY name').all() as {name:string}[]).map(x=>x.name);
+  return (db.prepare('SELECT name FROM schema_migrations ORDER BY name').all() as {name:string}[]).map(x=>x.name).filter(name=>!TECHNICAL_MIGRATIONS.has(name));
 }
 function columns(db:Database.Database,table:string):string[]{
   if(!BACKUP_TABLES.includes(table as (typeof BACKUP_TABLES)[number]))return fail('Unsupported table');
@@ -55,6 +57,8 @@ function countRows(data:Dataset):Record<string,number>{
   return Object.fromEntries(BACKUP_TABLES.map(t=>[t,data.tables[t].length]));
 }
 function archiveFor(db:Database.Database,data:Dataset):Buffer{
+  const rowCounts=countRows(data);
+  if(Object.values(rowCounts).reduce((sum,count)=>sum+count,0)>MAX_ROWS)fail('Backup exceeds record limit');
   const body=Buffer.from(JSON.stringify(data),'utf8');
   if(body.length>MAX_DATA_BYTES)return fail('Backup data exceeds 24 MiB');
   const migrations=schemaMigrations(db);
@@ -62,7 +66,7 @@ function archiveFor(db:Database.Database,data:Dataset):Buffer{
     format:'smart-shopping-assistant-backup',formatVersion:1,
     createdAt:new Date().toISOString(),appVersion:appVersion(),
     schemaVersion:migrations.at(-1)??'none',schemaMigrations:migrations,
-    rowCounts:countRows(data),dataSha256:createHash('sha256').update(body).digest('hex'),
+    rowCounts,dataSha256:createHash('sha256').update(body).digest('hex'),
     contents:['manifest.json','data.json']
   };
   return makeZip({'manifest.json':Buffer.from(JSON.stringify(manifest),'utf8'),'data.json':body});
@@ -128,8 +132,25 @@ function validatePayload(db:Database.Database,archive:Buffer):{manifest:Manifest
   if(Object.keys(manifest.rowCounts).sort().join('|')!==[...BACKUP_TABLES].sort().join('|'))fail('Invalid backup row counts');
   return {manifest,data:document as unknown as Dataset,total};
 }
+function insertDataset(db:Database.Database,data:Dataset):void {
+  for(const table of BACKUP_TABLES){
+    const fields=columns(db,table);
+    const statement=db.prepare(`INSERT INTO "${table}" (${fields.map(x=>`"${x}"`).join(',')}) VALUES (${fields.map(()=>'?').join(',')})`);
+    for(const row of data.tables[table])statement.run(...fields.map(x=>row[x]));
+  }
+  if((db.pragma('foreign_key_check') as unknown[]).length)fail('Backup violates database references');
+}
+
 export function previewBackup(db:Database.Database,archive:Buffer){
-  const {manifest,total}=validatePayload(db,archive);
+  const {manifest,data,total}=validatePayload(db,archive);
+  const staging = new Database(':memory:');
+  try {
+    const definitions = db.prepare("SELECT tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index') AND sql IS NOT NULL ORDER BY type DESC").all() as {tbl_name:string;sql:string}[];
+    for (const {tbl_name,sql} of definitions)
+      if (BACKUP_TABLES.includes(tbl_name as (typeof BACKUP_TABLES)[number])) staging.exec(sql);
+    staging.pragma('foreign_keys=ON');
+    staging.transaction(()=>insertDataset(staging,data))();
+  } finally { staging.close(); }
   return {createdAt:manifest.createdAt,appVersion:manifest.appVersion,
     schemaVersion:manifest.schemaVersion,rowCounts:manifest.rowCounts,totalRecords:total};
 }
@@ -144,16 +165,19 @@ export function restoreBackup(db:Database.Database,archive:Buffer,backupDirector
     const previous=capture(db),safety=archiveFor(db,previous);
     mkdirSync(folder,{recursive:true,mode:0o700});
     safetyName=`pre-import-${new Date().toISOString().replace(/[-:]/g,'').replace('T','-').slice(0,15)}-${randomBytes(4).toString('hex')}.zip`;
-    writeFileSync(join(folder,safetyName),safety,{flag:'wx',mode:0o600});
+    writeFileSync(join(folder,safetyName),safety,{flag:'wx',mode:0o600,flush:true});
     for(const table of [...BACKUP_TABLES].reverse())db.prepare(`DELETE FROM "${table}"`).run();
-    for(const table of BACKUP_TABLES){
-      const fields=columns(db,table);
-      const statement=db.prepare(`INSERT INTO "${table}" (${fields.map(x=>`"${x}"`).join(',')}) VALUES (${fields.map(()=>'?').join(',')})`);
-      for(const row of data.tables[table])statement.run(...fields.map(x=>row[x]));
-    }
-    const violations=db.pragma('foreign_key_check') as unknown[];
-    if(violations.length)fail('Backup violates database references');
+    insertDataset(db,data);
+    if (db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='shopping_operations'").get())
+      db.prepare('DELETE FROM shopping_operations').run();
   }).immediate();
+  try {
+    const saved=readdirSync(folder,{withFileTypes:true})
+      .filter(file=>file.isFile()&&/^pre-import-\d{8}-\d{6}-[a-f0-9]{8}\.zip$/.test(file.name)&&file.name!==safetyName)
+      .map(file=>({name:file.name,modified:statSync(join(folder,file.name)).mtimeMs}))
+      .sort((a,b)=>b.modified-a.modified);
+    for(const {name} of saved.slice(SAFETY_BACKUP_RETENTION-1))unlinkSync(join(folder,name));
+  } catch (cause) { console.warn('[backup] retention cleanup failed', (cause as Error).name); }
   // Technical tables (sessions, rate-limits, event log, settings and migration
   // bookkeeping) are intentionally not restored or exported.
   return {createdAt:manifest.createdAt,importedRecords:total,rowCounts:countRows(data),safetyBackup:basename(safetyName)};

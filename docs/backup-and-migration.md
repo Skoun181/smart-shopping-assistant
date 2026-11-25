@@ -117,3 +117,7 @@ chmod 600 "$HOME/DATEINAME.zip"
 **Was passiert mit vorhandenen Daten?** Nach Bestätigung ersetzt der Import die Haushaltsdaten; vorher liegt ein Sicherheits-Backup im Ziel-Volume.
 
 **Wie komme ich an das Sicherheits-Backup?** Mit `docker cp` aus `/data/backups/` kopieren (Beispiel oben). Die ZIP kann bei Bedarf über den gleichen Importdialog zurückgespielt werden.
+
+### Vor einem Develop-Upgrade
+
+Develop verwendet das Volume `shopping-develop-data`. Für einen Test mit Stable-Daten ein portables ZIP exportieren und nur ins Develop-Volume importieren. Bei einem bereits genutzten Develop-Volume vor dem Upgrade ein zusätzliches vollständiges SQLite-Backup erstellen. Die neue technische Migration ergänzt nur die Wiederholungsverwaltung für Sammelaktionen. Ältere portable ZIPs bleiben kompatibel.

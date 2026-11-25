@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { prepareHeaders } from './network-headers.mjs';
+import { ingressPolicy, prepareHeaders } from './network-headers.mjs';
 
 // Legacy fixed-origin settings do not override the request's host and scheme.
 delete process.env.ORIGIN;
@@ -7,9 +7,10 @@ delete process.env.HOST_HEADER;
 delete process.env.PORT_HEADER;
 process.env.PROTOCOL_HEADER='x-ssa-protocol';
 process.env.ADDRESS_HEADER='x-ssa-client-ip';
+const policy=ingressPolicy(process.env);
 const {handler}=await import('../build/handler.js');
 const server=createServer({maxHeaderSize:16384},(req,res)=>{
-  if(!prepareHeaders(req.headers,req.socket.remoteAddress)){
+  if(!prepareHeaders(req.headers,req.socket.remoteAddress,policy)){
     res.writeHead(400,{'Content-Type':'text/plain','Cache-Control':'no-store'}).end('Invalid host or protocol');return;
   }
   if(!req.url?.startsWith('/')||req.url.startsWith('//')||req.url.split('?')[0].includes('\\')){

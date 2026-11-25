@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { operationId } from './operation-id';
   import { onMount } from 'svelte';
   import { parseCSV,CSV_TEMPLATE,importPrompt,normalized,units,type Draft,type Unit } from '../pantry-import';
   import { productEmoji } from './product-emoji';
@@ -16,11 +17,9 @@
   let mode:'receipt'|'photo'|'csv'='receipt';
   let file:File|null=null, csv='', rows:Row[]=[], message='', busy=false, approved=false, vision=false, capabilitiesLoaded=false;
   let serial=0;
-  // getRandomValues works on HTTP localhost and ordinary LAN origins, unlike randomUUID.
-  const random=()=>{const a=crypto.getRandomValues(new Uint8Array(16));a[6]=(a[6]&15)|64;a[8]=(a[8]&63)|128;const h=Array.from(a,n=>n.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);};
   let importId='';
   onMount(()=>{
-    importId=random();
+    importId=operationId();
     fetch('/api/v1/pantry/scan').then(async r=>{if(r.ok)vision=!!(await r.json()).vision;}).catch(()=>{}).finally(()=>capabilitiesLoaded=true);
   });
   $: selected=rows.filter(r=>r.selected);
@@ -62,11 +61,11 @@
   }
   function selectMode(next:typeof mode){
     if(rows.length&&!confirm(tr('Aktuellen Entwurf verwerfen?','Discard the current draft?')))return;
-    mode=next;file=null;rows=[];approved=false;message='';importId=random();
+    mode=next;file=null;rows=[];approved=false;message='';importId=operationId();
   }
   function loadDraft(items:Draft[]){
     if(!items.length){message=tr('Keine sicheren Produktvorschläge gefunden. Ergänze Zeilen manuell oder nutze CSV.','No reliable suggestions found. Add rows manually or use CSV.');return;}
-    rows=items.map(d=>resolve(d,mode==='receipt'));approved=false;importId=random();
+    rows=items.map(d=>resolve(d,mode==='receipt'));approved=false;importId=operationId();
   }
   async function analyze(){
     if(busy)return;busy=true;message='';
